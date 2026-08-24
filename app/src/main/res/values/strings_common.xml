@@ -91,6 +91,8 @@
     <string name="cd_search_songs">搜索歌曲</string>
     <string name="cd_download_manager">下载管理器</string>
     <string name="cd_export_playlist">导出到歌单</string>
+    <string name="nowplaying_queue_add_to_netease">添加到网易云歌单</string>
+    <string name="nowplaying_queue_netease_sync_started">正在添加到网易云歌单…</string>
     <string name="cd_download_selected">下载选中歌曲</string>
     <string name="cd_locate_playing">定位到正在播放</string>
     <string name="cd_open_current_playback_source">定位当前歌单</string>

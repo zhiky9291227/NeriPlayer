@@ -30,6 +30,7 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material.icons.outlined.Handyman
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Timer
 import androidx.compose.material.icons.outlined.Update
@@ -67,6 +68,7 @@ internal fun SettingsAboutContent(
     onOpenGitHubRepo: () -> Unit
 ) {
     SettingsAboutIntroItem()
+    SettingsModifiedByItem()
     SettingsBuildUuidItem(onCopyValue)
     SettingsVersionItem(
         devModeEnabled = devModeEnabled,
@@ -94,6 +96,27 @@ private fun SettingsAboutIntroItem() {
             )
         },
         supportingContent = { Text(stringResource(R.string.about_app_footer)) },
+        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+    )
+}
+
+@Composable
+private fun SettingsModifiedByItem() {
+    ListItem(
+        leadingContent = {
+            Icon(
+                imageVector = Icons.Outlined.Handyman,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurface
+            )
+        },
+        headlineContent = {
+            Text(
+                text = "由酷安 Himaon 修改",
+                style = MaterialTheme.typography.titleMedium
+            )
+        },
+        supportingContent = { Text("基于开源 NeriPlayer 修改构建") },
         colors = ListItemDefaults.colors(containerColor = Color.Transparent)
     )
 }

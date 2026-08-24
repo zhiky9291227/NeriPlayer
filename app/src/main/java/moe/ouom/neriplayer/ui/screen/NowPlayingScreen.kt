@@ -236,6 +236,7 @@ import moe.ouom.neriplayer.core.player.model.PlayerQueueDisplayItem
 import moe.ouom.neriplayer.data.local.media.isLocalSong
 import moe.ouom.neriplayer.data.local.media.LocalMediaSupport
 import moe.ouom.neriplayer.data.model.isSyncableRemoteSong
+import moe.ouom.neriplayer.data.local.playlist.sync.NeteaseRemotePlaylist
 import moe.ouom.neriplayer.data.local.media.CustomSongCoverStorage
 import moe.ouom.neriplayer.data.local.playlist.LocalPlaylistRepository
 import moe.ouom.neriplayer.data.local.playlist.launchLocalPlaylistMutation
@@ -292,6 +293,7 @@ import moe.ouom.neriplayer.ui.component.playback.resolvePlaybackWaiting
 import moe.ouom.neriplayer.ui.component.sheet.bottomSheetDragBlocker
 import moe.ouom.neriplayer.ui.component.sheet.bottomSheetScrollGuard
 import moe.ouom.neriplayer.ui.feedback.NeriOverlaySnackbarHost
+import moe.ouom.neriplayer.ui.feedback.AppFeedback
 import moe.ouom.neriplayer.ui.feedback.showNeriSnackbar
 import moe.ouom.neriplayer.ui.theme.LocalNeriTargetColorScheme
 import moe.ouom.neriplayer.ui.component.playlist.PlaylistExportSheet
@@ -1093,6 +1095,7 @@ private fun NowPlayingQueueSelectionToolbar(
     onSelectAll: () -> Unit,
     onInvertSelection: () -> Unit,
     onExport: () -> Unit,
+    onAddToNetease: () -> Unit,
     onExitSelection: () -> Unit
 ) {
     Row(
@@ -1142,10 +1145,19 @@ private fun NowPlayingQueueSelectionToolbar(
         }
         HapticIconButton(
             enabled = canExport,
-            onClick = onExport
+            onClick = onAddToNetease
         ) {
             Icon(
                 imageVector = Icons.AutoMirrored.Outlined.PlaylistAdd,
+                contentDescription = stringResource(R.string.nowplaying_queue_add_to_netease)
+            )
+        }
+        HapticIconButton(
+            enabled = canExport,
+            onClick = onExport
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.Save,
                 contentDescription = stringResource(R.string.cd_export_playlist)
             )
         }
@@ -1180,6 +1192,13 @@ internal fun NowPlayingQueueSheet(
     var selectionMode by remember { mutableStateOf(false) }
     var selectedKeys by remember { mutableStateOf<Set<String>>(emptySet()) }
     var showExportSheet by remember { mutableStateOf(false) }
+    var showNeteasePlaylistPicker by remember { mutableStateOf(false) }
+    var neteaseRemotePlaylists by remember {
+        mutableStateOf<List<NeteaseRemotePlaylist>>(emptyList())
+    }
+    var neteasePlaylistsLoading by remember { mutableStateOf(false) }
+    var neteasePlaylistsError by remember { mutableStateOf<String?>(null) }
+    var neteaseSyncInProgress by remember { mutableStateOf(false) }
     var showQueueIndexJumpDialog by remember { mutableStateOf(false) }
     var queueIndexInput by remember { mutableStateOf("") }
     val sourceEntries = remember(displayedQueueItems) {
@@ -1275,6 +1294,71 @@ internal fun NowPlayingQueueSheet(
     fun exitSelection() {
         selectionMode = false
         selectedKeys = emptySet()
+    }
+
+    fun openNeteasePlaylistPicker() {
+        val songs = selectedSongs
+        if (songs.isEmpty() || neteaseSyncInProgress) return
+        showExportSheet = false
+        neteaseRemotePlaylists = emptyList()
+        neteasePlaylistsError = null
+        neteasePlaylistsLoading = true
+        showNeteasePlaylistPicker = true
+        screenScope.launch {
+            runCatching {
+                localPlaylistRepo.fetchNeteaseRemotePlaylists(AppContainer.neteaseClient)
+            }.onSuccess { playlists ->
+                neteasePlaylistsLoading = false
+                if (playlists.isEmpty()) {
+                    neteasePlaylistsError = context.getString(
+                        R.string.local_playlist_sync_netease_no_playlists
+                    )
+                }
+                neteaseRemotePlaylists = playlists
+            }.onFailure { error ->
+                neteasePlaylistsLoading = false
+                neteasePlaylistsError = error.message?.takeIf(String::isNotBlank)
+                    ?: context.getString(R.string.local_playlist_sync_netease_load_failed)
+            }
+        }
+    }
+
+    fun addSelectedSongsToNeteasePlaylist(target: NeteaseRemotePlaylist) {
+        val songs = selectedSongs
+        if (songs.isEmpty() || neteaseSyncInProgress) return
+        showNeteasePlaylistPicker = false
+        neteaseSyncInProgress = true
+        screenScope.launch {
+            snackbarHostState.showNeriSnackbar(
+                context.getString(R.string.nowplaying_queue_netease_sync_started)
+            )
+        }
+        screenScope.launch(Dispatchers.IO) {
+            val result = localPlaylistRepo.syncSongsToNeteasePlaylist(
+                client = AppContainer.neteaseClient,
+                targetPlaylistId = target.id,
+                songs = songs
+            )
+            val message = listOfNotNull(
+                context.getString(
+                    R.string.local_playlist_sync_netease_target,
+                    target.name
+                ),
+                result.message ?: context.getString(
+                    R.string.local_playlist_sync_netease_result,
+                    result.totalSongs,
+                    result.added,
+                    result.skippedExisting,
+                    result.skippedUnsupported,
+                    result.failed
+                )
+            ).joinToString(" ")
+            screenScope.launch {
+                neteaseSyncInProgress = false
+                snackbarHostState.showNeriSnackbar(message)
+                if (selectedKeys.isNotEmpty()) exitSelection()
+            }
+        }
     }
 
     var dismissingQueue by remember { mutableStateOf(false) }
@@ -1429,6 +1513,7 @@ internal fun NowPlayingQueueSheet(
                                 showExportSheet = true
                             }
                         },
+                        onAddToNetease = ::openNeteasePlaylistPicker,
                         onExitSelection = ::exitSelection
                     )
                 } else {
@@ -1621,6 +1706,71 @@ internal fun NowPlayingQueueSheet(
                 applyNavigationBarsPadding = false
             )
         }
+    }
+
+    if (showNeteasePlaylistPicker) {
+        AlertDialog(
+            onDismissRequest = { showNeteasePlaylistPicker = false },
+            title = {
+                Text(stringResource(R.string.local_playlist_sync_netease_picker_title))
+            },
+            text = {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    if (neteasePlaylistsLoading) {
+                        Text(
+                            text = stringResource(
+                                R.string.local_playlist_sync_netease_loading_playlists
+                            ),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    neteasePlaylistsError?.let { message ->
+                        Text(
+                            text = message,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+                    LazyColumn(modifier = Modifier.heightIn(max = 360.dp)) {
+                        itemsIndexed(
+                            items = neteaseRemotePlaylists,
+                            key = { _, playlist -> playlist.id }
+                        ) { _, playlist ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .clickable(enabled = !neteasePlaylistsLoading) {
+                                        addSelectedSongsToNeteasePlaylist(playlist)
+                                    }
+                                    .padding(horizontal = 4.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Outlined.PlaylistAdd,
+                                    contentDescription = null
+                                )
+                                Text(
+                                    text = playlist.name,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                MiuixSettingsTextButton(onClick = { showNeteasePlaylistPicker = false }) {
+                    Text(stringResource(R.string.action_cancel))
+                }
+            }
+        )
     }
 
     if (showExportSheet) {
@@ -1984,6 +2134,7 @@ fun NowPlayingScreen(
     var previousLyricsScreenState by remember { mutableStateOf(false) }
     var showCoverPreview by remember(playbackSourceSongKey) { mutableStateOf(false) }
     var showMoreOptions by remember { mutableStateOf(false) }
+    var showNeteasePlaylistPicker by remember { mutableStateOf(false) }
     var showSongNameMenu by remember { mutableStateOf(false) }
     var showArtistMenu by remember { mutableStateOf(false) }
     var showQualitySwitchDialog by remember { mutableStateOf(false) }
@@ -2985,6 +3136,7 @@ fun NowPlayingScreen(
                                     onLyricFontScaleChange = onLyricFontScaleChange,
                                     currentPlaybackAudioInfo = currentPlaybackAudioInfo,
                                     onShowQualitySwitch = { showQualitySwitchDialog = true },
+                                    onAddToNeteasePlaylist = { showNeteasePlaylistPicker = true },
                                     offlineMode = offlineMode
                                 )
                             }
@@ -3008,8 +3160,15 @@ fun NowPlayingScreen(
                                 maxHeight * 0.42f
                             )
                             isLandscape -> minOf(windowWidthDp * 0.45f, maxHeight * 0.5f, maxWidth)
-                            else -> minOf(maxWidth * 0.6f, maxHeight * 0.65f)
+                            // 大封面占主体：竖屏下尽量占满宽度
+                            else -> minOf(maxWidth * 0.92f, maxHeight * 0.62f)
                         }
+                        // 暂停时封面微微缩小，播放时恢复，符合操作直觉
+                        val coverPlayingScale by animateFloatAsState(
+                            targetValue = if (isPlaybackControlPlaying) 1f else 0.94f,
+                            animationSpec = tween(durationMillis = 260),
+                            label = "cover_playing_scale"
+                        )
                         val coverRequestSizePx = with(LocalDensity.current) {
                             coverSize.roundToPx().coerceAtLeast(256)
                         }
@@ -3017,6 +3176,10 @@ fun NowPlayingScreen(
                             modifier = Modifier
                                 .align(Alignment.Center)
                                 .size(coverSize)
+                                .graphicsLayer {
+                                    scaleX = coverPlayingScale
+                                    scaleY = coverPlayingScale
+                                }
                         ) {
                             Box(
                                 modifier = Modifier
@@ -3438,14 +3601,10 @@ fun NowPlayingScreen(
                         if (useNowPlayingToolbarDock) {
                             Surface(
                                 modifier = toolbarContainerModifier,
-                                shape = RoundedCornerShape(30.dp),
-                                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.40f),
+                                shape = RoundedCornerShape(28.dp),
+                                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.30f),
                                 tonalElevation = 0.dp,
-                                shadowElevation = 0.dp,
-                                border = BorderStroke(
-                                    width = 1.dp,
-                                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.12f)
-                                )
+                                shadowElevation = 0.dp
                             ) {
                                 toolbarContent()
                             }
@@ -3652,6 +3811,118 @@ fun NowPlayingScreen(
                     onSelect = { option ->
                         PlayerManager.changeCurrentPlaybackQuality(option.key)
                         showQualitySwitchDialog = false
+                    }
+                )
+            }
+
+            if (showNeteasePlaylistPicker) {
+                val context = LocalContext.current
+                val neteaseRepo = remember(context) { LocalPlaylistRepository.getInstance(context) }
+                var neteaseRemotePlaylists by remember {
+                    mutableStateOf<List<NeteaseRemotePlaylist>>(emptyList())
+                }
+                var neteasePlaylistsLoading by remember { mutableStateOf(false) }
+                var neteasePlaylistsError by remember { mutableStateOf<String?>(null) }
+                val neteaseCoroutineScope = rememberCoroutineScope()
+
+                LaunchedEffect(Unit) {
+                    neteasePlaylistsLoading = true
+                    runCatching {
+                        neteaseRepo.fetchNeteaseRemotePlaylists(AppContainer.neteaseClient)
+                    }.onSuccess { playlists ->
+                        neteasePlaylistsLoading = false
+                        if (playlists.isEmpty()) {
+                            neteasePlaylistsError = context.getString(
+                                R.string.local_playlist_sync_netease_no_playlists
+                            )
+                        }
+                        neteaseRemotePlaylists = playlists
+                    }.onFailure { error ->
+                        neteasePlaylistsLoading = false
+                        neteasePlaylistsError = error.message?.takeIf(String::isNotBlank)
+                            ?: context.getString(R.string.local_playlist_sync_netease_load_failed)
+                    }
+                }
+
+                AlertDialog(
+                    onDismissRequest = { showNeteasePlaylistPicker = false },
+                    title = {
+                        Text(stringResource(R.string.local_playlist_sync_netease_picker_title))
+                    },
+                    text = {
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            if (neteasePlaylistsLoading) {
+                                Text(
+                                    text = stringResource(
+                                        R.string.local_playlist_sync_netease_loading_playlists
+                                    ),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            neteasePlaylistsError?.let { message ->
+                                Text(text = message, color = MaterialTheme.colorScheme.error)
+                            }
+                            LazyColumn(modifier = Modifier.heightIn(max = 360.dp)) {
+                                itemsIndexed(
+                                    items = neteaseRemotePlaylists,
+                                    key = { _, playlist -> playlist.id }
+                                ) { _, playlist ->
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clip(RoundedCornerShape(12.dp))
+                                            .clickable(enabled = !neteasePlaylistsLoading) {
+                                                val song = currentSong ?: return@clickable
+                                                showNeteasePlaylistPicker = false
+                                                neteaseCoroutineScope.launch(Dispatchers.IO) {
+                                                    val result = neteaseRepo.syncSongsToNeteasePlaylist(
+                                                        client = AppContainer.neteaseClient,
+                                                        targetPlaylistId = playlist.id,
+                                                        songs = listOf(song)
+                                                    )
+                                                    val message = context.getString(
+                                                        R.string.local_playlist_sync_netease_target,
+                                                        playlist.name
+                                                    ) + " " + (result.message ?: context.getString(
+                                                        R.string.local_playlist_sync_netease_result,
+                                                        result.totalSongs,
+                                                        result.added,
+                                                        result.skippedExisting,
+                                                        result.skippedUnsupported,
+                                                        result.failed
+                                                    ))
+                                                    withContext(Dispatchers.Main) {
+                                                        AppFeedback.showToast(message = message)
+                                                    }
+                                                }
+                                            }
+                                            .padding(horizontal = 4.dp, vertical = 10.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.AutoMirrored.Outlined.PlaylistAdd,
+                                            contentDescription = null
+                                        )
+                                        Text(
+                                            text = playlist.name,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    confirmButton = {},
+                    dismissButton = {
+                        MiuixSettingsTextButton(onClick = { showNeteasePlaylistPicker = false }) {
+                            Text(stringResource(R.string.action_cancel))
+                        }
                     }
                 )
             }
@@ -3931,6 +4202,7 @@ fun MoreOptionsSheet(
     onLyricFontScaleChange: (LyricFontScaleTarget, Float) -> Unit,
     currentPlaybackAudioInfo: PlaybackAudioInfo? = null,
     onShowQualitySwitch: () -> Unit = {},
+    onAddToNeteasePlaylist: () -> Unit = {},
     offlineMode: Boolean = false
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -4016,6 +4288,9 @@ fun MoreOptionsSheet(
                         },
                         onShowQualitySwitch = {
                             dismissSheet { onShowQualitySwitch() }
+                        },
+                        onAddToNeteasePlaylist = {
+                            dismissSheet { onAddToNeteasePlaylist() }
                         },
                         onEnterAlbum = { album ->
                             dismissSheet {
@@ -4150,6 +4425,7 @@ fun MoreOptionsSheet(
         )
         }
     }
+
 }
 
 private data class NowPlayingProgressInfoSegment(

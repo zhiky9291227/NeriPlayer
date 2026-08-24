@@ -91,6 +91,8 @@
     <string name="cd_search_songs">Search Songs</string>
     <string name="cd_download_manager">Download Manager</string>
     <string name="cd_export_playlist">Export to Playlist</string>
+    <string name="nowplaying_queue_add_to_netease">Add to NetEase playlist</string>
+    <string name="nowplaying_queue_netease_sync_started">Adding to NetEase playlist…</string>
     <string name="cd_download_selected">Download Selected</string>
     <string name="cd_locate_playing">Locate Now Playing</string>
     <string name="cd_open_current_playback_source">Locate Current Playlist</string>

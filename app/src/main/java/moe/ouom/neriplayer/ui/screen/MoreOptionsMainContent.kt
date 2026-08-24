@@ -11,6 +11,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.PlaylistAdd
 import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.Edit
@@ -106,6 +107,7 @@ internal fun MoreOptionsMainContent(
     onOpenListenTogether: () -> Unit,
     onShowSongDetails: () -> Unit,
     onShowQualitySwitch: () -> Unit,
+    onAddToNeteasePlaylist: () -> Unit = {},
     onEnterAlbum: (AlbumSummary) -> Unit,
     onDismissSheet: (() -> Unit) -> Unit
 ) {
@@ -119,10 +121,12 @@ internal fun MoreOptionsMainContent(
         MetadataAndPlaybackActions(
             audioInfo = currentPlaybackAudioInfo,
             isDismissing = isDismissing,
+            isLocalSong = isLocalSong,
             onOpenSearch = onOpenSearch,
             onOpenEditInfo = onOpenEditInfo,
             onOpenPlaybackSound = onOpenPlaybackSound,
-            onShowQualitySwitch = onShowQualitySwitch
+            onShowQualitySwitch = onShowQualitySwitch,
+            onAddToNeteasePlaylist = onAddToNeteasePlaylist
         )
         DownloadOrDetailsAction(
             viewModel = viewModel,
@@ -165,10 +169,12 @@ internal fun MoreOptionsMainContent(
 private fun MetadataAndPlaybackActions(
     audioInfo: PlaybackAudioInfo?,
     isDismissing: Boolean,
+    isLocalSong: Boolean,
     onOpenSearch: () -> Unit,
     onOpenEditInfo: () -> Unit,
     onOpenPlaybackSound: () -> Unit,
-    onShowQualitySwitch: () -> Unit
+    onShowQualitySwitch: () -> Unit,
+    onAddToNeteasePlaylist: () -> Unit = {}
 ) {
     ListItem(
         headlineContent = { Text(stringResource(R.string.music_get_info)) },
@@ -178,6 +184,16 @@ private fun MetadataAndPlaybackActions(
             onClick = onOpenSearch
         )
     )
+    if (!isLocalSong) {
+        ListItem(
+            headlineContent = { Text(stringResource(R.string.nowplaying_queue_add_to_netease)) },
+            leadingContent = { Icon(Icons.AutoMirrored.Outlined.PlaylistAdd, null) },
+            modifier = Modifier.clickable(
+                enabled = !isDismissing,
+                onClick = onAddToNeteasePlaylist
+            )
+        )
+    }
     ListItem(
         headlineContent = { Text(stringResource(R.string.music_edit_info)) },
         leadingContent = { Icon(Icons.Outlined.Edit, null) },
