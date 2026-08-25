@@ -814,6 +814,7 @@ private val PageSearchAliases = mapOf(
     SettingsPage.Downloads to listOf("download", "downloads", "threads", "parallel", "concurrency", "xiazai"),
     SettingsPage.Backup to listOf("backup", "sync", "github", "webdav", "import", "export", "beifen"),
     SettingsPage.ListenTogether to listOf("listen together", "room", "worker", "server", "yiqiting"),
+    SettingsPage.NowPlayingMenu to listOf("now playing", "menu", "more", "caidan", "gengduo"),
     SettingsPage.About to listOf("about", "version", "debug", "guanyu")
 )
 

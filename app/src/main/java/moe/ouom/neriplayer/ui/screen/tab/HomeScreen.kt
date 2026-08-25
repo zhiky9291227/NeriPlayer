@@ -155,7 +155,6 @@ import moe.ouom.neriplayer.ui.viewmodel.tab.HomeViewModel
 import moe.ouom.neriplayer.ui.viewmodel.tab.NeteaseHomePlaylistSource
 import moe.ouom.neriplayer.ui.viewmodel.tab.NeteaseHomeSongSource
 import moe.ouom.neriplayer.ui.viewmodel.tab.NETEASE_DAILY_RECOMMEND_PLAYLIST_VIEW_ID
-import moe.ouom.neriplayer.ui.viewmodel.tab.NETEASE_PRIVATE_FM_PLAYLIST_VIEW_ID
 import moe.ouom.neriplayer.ui.viewmodel.tab.NETEASE_PRIVATE_RADAR_PLAYLIST_ID
 import moe.ouom.neriplayer.ui.viewmodel.tab.NETEASE_TOPLIST_SOARING_ID
 import moe.ouom.neriplayer.ui.viewmodel.tab.NETEASE_TOPLIST_HOT_ID
@@ -261,7 +260,6 @@ fun HomeScreen(
     // 板块标题预解析(stringResource 不能在非 Composable lambda 里调用)
     val radarSongsTitleText = stringResource(R.string.recommend_radar)
     val dailySongsTitleText = stringResource(R.string.home_netease_daily_songs)
-    val privateFmTitleText = stringResource(R.string.home_netease_private_fm)
     val topSoaringTitleText = stringResource(R.string.recommend_trending)
     val topHotTitleText = stringResource(R.string.home_netease_hot_rank)
     val topNewTitleText = stringResource(R.string.home_netease_new_rank)
@@ -830,19 +828,6 @@ fun HomeScreen(
                                                             PlaylistSummary(
                                                                 id = NETEASE_DAILY_RECOMMEND_PLAYLIST_VIEW_ID,
                                                                 name = dailySongsTitleText,
-                                                                picUrl = "",
-                                                                playCount = 0L,
-                                                                trackCount = 0
-                                                            )
-                                                        )
-                                                    }
-                                                }
-                                                NeteaseHomeSongSource.PRIVATE_FM -> {
-                                                    {
-                                                        onItemClick(
-                                                            PlaylistSummary(
-                                                                id = NETEASE_PRIVATE_FM_PLAYLIST_VIEW_ID,
-                                                                name = privateFmTitleText,
                                                                 picUrl = "",
                                                                 playCount = 0L,
                                                                 trackCount = 0

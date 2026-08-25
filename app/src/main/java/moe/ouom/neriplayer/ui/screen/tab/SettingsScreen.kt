@@ -2192,6 +2192,18 @@ fun SettingsScreen(
                     }
                 }
 
+                SettingsPage.NowPlayingMenu -> {
+                    miuixSettingsSectionCardItem("${selectedPage.name}:content") {
+                        NowPlayingMenuVisibilityContent(
+                            autoSettingsRepository = autoSettingsRepository,
+                            scope = scope,
+                            highlightTargetId = settingsHighlightTargetId,
+                            highlightPulse = settingsHighlightPulse,
+                            onHighlightFinished = onSettingsHighlightFinished
+                        )
+                    }
+                }
+
                 SettingsPage.About -> {
                     miuixSettingsSectionCardItem("${selectedPage.name}:content") {
                         SettingsAboutContent(
@@ -3162,6 +3174,112 @@ private fun ThemeColorSpecSelector(
         },
         colors = ListItemDefaults.colors(containerColor = Color.Transparent)
     )
+}
+
+/**
+ * 播放页菜单自定义：13 个开关逐项控制播放页「更多操作」菜单的显隐。
+ * 关掉某项后该选项不再出现在播放页右上角三点菜单里。
+ */
+@Composable
+private fun NowPlayingMenuVisibilityContent(
+    autoSettingsRepository: AutoSettingsRepository,
+    scope: kotlinx.coroutines.CoroutineScope,
+    highlightTargetId: String?,
+    highlightPulse: Int,
+    onHighlightFinished: (() -> Unit)?
+) {
+    val menuItems = listOf(
+        Triple(
+            AutoSettingsKeys.NOWPLAYING_MENU_SONG_INFO,
+            autoSettingsRepository.nowPlayingMenuSongInfoFlow,
+            autoSettingsRepository::setNowPlayingMenuSongInfo
+        ),
+        Triple(
+            AutoSettingsKeys.NOWPLAYING_MENU_ADD_NETEASE,
+            autoSettingsRepository.nowPlayingMenuAddNeteaseFlow,
+            autoSettingsRepository::setNowPlayingMenuAddNetease
+        ),
+        Triple(
+            AutoSettingsKeys.NOWPLAYING_MENU_EDIT_INFO,
+            autoSettingsRepository.nowPlayingMenuEditInfoFlow,
+            autoSettingsRepository::setNowPlayingMenuEditInfo
+        ),
+        Triple(
+            AutoSettingsKeys.NOWPLAYING_MENU_QUALITY,
+            autoSettingsRepository.nowPlayingMenuQualityFlow,
+            autoSettingsRepository::setNowPlayingMenuQuality
+        ),
+        Triple(
+            AutoSettingsKeys.NOWPLAYING_MENU_AUDIO_EFFECTS,
+            autoSettingsRepository.nowPlayingMenuAudioEffectsFlow,
+            autoSettingsRepository::setNowPlayingMenuAudioEffects
+        ),
+        Triple(
+            AutoSettingsKeys.NOWPLAYING_MENU_DOWNLOAD,
+            autoSettingsRepository.nowPlayingMenuDownloadFlow,
+            autoSettingsRepository::setNowPlayingMenuDownload
+        ),
+        Triple(
+            AutoSettingsKeys.NOWPLAYING_MENU_LYRIC_BEHAVIOR,
+            autoSettingsRepository.nowPlayingMenuLyricBehaviorFlow,
+            autoSettingsRepository::setNowPlayingMenuLyricBehavior
+        ),
+        Triple(
+            AutoSettingsKeys.NOWPLAYING_MENU_LYRIC_FONT,
+            autoSettingsRepository.nowPlayingMenuLyricFontFlow,
+            autoSettingsRepository::setNowPlayingMenuLyricFont
+        ),
+        Triple(
+            AutoSettingsKeys.NOWPLAYING_MENU_VIEW_ALBUM,
+            autoSettingsRepository.nowPlayingMenuViewAlbumFlow,
+            autoSettingsRepository::setNowPlayingMenuViewAlbum
+        ),
+        Triple(
+            AutoSettingsKeys.NOWPLAYING_MENU_SHARE,
+            autoSettingsRepository.nowPlayingMenuShareFlow,
+            autoSettingsRepository::setNowPlayingMenuShare
+        ),
+        Triple(
+            AutoSettingsKeys.NOWPLAYING_MENU_STATS,
+            autoSettingsRepository.nowPlayingMenuStatsFlow,
+            autoSettingsRepository::setNowPlayingMenuStats
+        ),
+        Triple(
+            AutoSettingsKeys.NOWPLAYING_MENU_LISTEN_TOGETHER,
+            autoSettingsRepository.nowPlayingMenuListenTogetherFlow,
+            autoSettingsRepository::setNowPlayingMenuListenTogether
+        ),
+        Triple(
+            AutoSettingsKeys.NOWPLAYING_MENU_DELETE_FROM_PLAYLIST,
+            autoSettingsRepository.nowPlayingMenuDeleteFromPlaylistFlow,
+            autoSettingsRepository::setNowPlayingMenuDeleteFromPlaylist
+        )
+    )
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        PersonalizationDetailCard {
+            MiuixSettingsSectionIntro(
+                title = stringResource(R.string.settings_nowplaying_menu_section),
+                description = stringResource(R.string.settings_nowplaying_menu_section_desc)
+            )
+            for ((key, flow, setter) in menuItems) {
+                val checked by flow.collectAsState(initial = key != AutoSettingsKeys.NOWPLAYING_MENU_DELETE_FROM_PLAYLIST)
+                PersonalizationSwitchItem(
+                    setting = AutoSettingsMetadata.requireSetting(key),
+                    checked = checked,
+                    onCheckedChange = { enabled ->
+                        scope.launch { setter(enabled) }
+                    },
+                    highlightTargetId = highlightTargetId,
+                    highlightPulse = highlightPulse,
+                    onHighlightFinished = onHighlightFinished
+                )
+            }
+        }
+    }
 }
 
 @Composable

@@ -51,9 +51,11 @@ import moe.ouom.neriplayer.data.model.NeteaseArtistSummary
 import moe.ouom.neriplayer.data.model.SongItem
 import moe.ouom.neriplayer.ui.viewmodel.artist.parseNeteaseArtistSummaries
 import moe.ouom.neriplayer.ui.viewmodel.tab.AlbumSummary
+import moe.ouom.neriplayer.ui.viewmodel.tab.NETEASE_DAILY_RECOMMEND_PLAYLIST_VIEW_ID
 import moe.ouom.neriplayer.ui.viewmodel.tab.NeteaseRadarPlaylistDefinitions
 import moe.ouom.neriplayer.ui.viewmodel.tab.PlaylistSummary
 import moe.ouom.neriplayer.ui.viewmodel.tab.isNeteaseRadarPlaylist
+import moe.ouom.neriplayer.ui.viewmodel.tab.parseNeteaseHomeSongs
 import moe.ouom.neriplayer.ui.viewmodel.tab.parseNeteasePlaylistDetailSummaryOrNull
 import moe.ouom.neriplayer.ui.viewmodel.tab.toPlaylistSummary
 import moe.ouom.neriplayer.core.logging.NPLogger
@@ -382,6 +384,11 @@ class NeteaseCollectionDetailViewModel(application: Application) : AndroidViewMo
         }
 
         try {
+            // 每日推荐视图 ID 不是真实歌单，走专属接口按账号动态取当日歌曲
+            if (playlist.id == NETEASE_DAILY_RECOMMEND_PLAYLIST_VIEW_ID) {
+                loadDailyRecommendView(playlist, loadGeneration)
+                return
+            }
             radarCacheContext = preparePlaylistRequest(playlist.id)
             if (!isCurrentPlaylistLoad(playlist, loadGeneration, radarCacheContext)) return
             val (raw, radarHeader) = coroutineScope {
@@ -847,13 +854,42 @@ class NeteaseCollectionDetailViewModel(application: Application) : AndroidViewMo
     private fun toHttps(url: String?): String? =
         url?.replaceFirst(Regex("^http://"), "https://")
 
+    /**
+     * 每日推荐完整视图：视图 ID 是占位 ID，不是真实歌单，
+     * 改走 /v3/discovery/recommend/songs 按登录账号取当日推荐
+     */
+    private suspend fun loadDailyRecommendView(
+        playlist: PlaylistSummary,
+        loadGeneration: Long
+    ) {
+        val raw = withContext(Dispatchers.IO) {
+            client.getDailyRecommendedSongs(afresh = false)
+        }
+        if (!isCurrentPlaylistLoad(playlist, loadGeneration, "")) return
+        val tracks = parseNeteaseHomeSongs(raw)
+        _uiState.value = NeteaseCollectionDetailUiState(
+            loading = false,
+            error = null,
+            header = NeteaseCollectionHeader(
+                id = playlist.id,
+                isAlbum = false,
+                name = playlist.name.ifBlank {
+                    getApplication<Application>().getString(R.string.home_netease_daily_songs)
+                },
+                coverUrl = "",
+                playCount = 0L,
+                trackCount = tracks.size
+            ),
+            tracks = tracks
+        )
+    }
+
     private fun parseDetailFromPlaylist(raw: String): ParsedDetail {
         val root = JSONObject(raw)
         val code = root.optInt("code", -1)
         require(code == 200) { getApplication<Application>().getString(R.string.error_api_code, code) }
 
         val pl = root.optJSONObject("playlist") ?: error(getApplication<Application>().getString(R.string.error_missing_node, "playlist"))
-
         val header = NeteaseCollectionHeader(
             id = pl.optLong("id"),
             name = pl.optString("name"),

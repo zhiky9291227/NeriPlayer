@@ -112,5 +112,9 @@
     <string name="settings_menu_view_album">Menu item: View album</string>
     <string name="settings_menu_playback_stats">Menu item: Playback stats</string>
     <string name="settings_menu_delete_from_playlist_desc">Only for songs from your own NetEase playlists, off by default</string>
+    <string name="settings_nowplaying_menu_page">Now Playing Menu</string>
+    <string name="settings_nowplaying_menu_page_desc">Customize items in the Now Playing overflow menu</string>
+    <string name="settings_nowplaying_menu_section">Menu Items</string>
+    <string name="settings_nowplaying_menu_section_desc">Turn off to hide an item from the Now Playing menu, effective immediately</string>
     <string name="cd_open_full_playlist">View full playlist</string>
 </resources>

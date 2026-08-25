@@ -10,6 +10,7 @@ import androidx.compose.material.icons.outlined.Cloud
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.LibraryMusic
+import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Router
 import androidx.compose.material.icons.outlined.Settings
@@ -101,6 +102,11 @@ internal enum class SettingsPage(
         descriptionRes = R.string.settings_listen_together_expand,
         icon = Icons.Outlined.Cloud
     ),
+    NowPlayingMenu(
+        titleRes = R.string.settings_nowplaying_menu_page,
+        descriptionRes = R.string.settings_nowplaying_menu_page_desc,
+        icon = Icons.Outlined.MoreVert
+    ),
     About(
         titleRes = R.string.settings_about,
         descriptionRes = R.string.settings_about_desc,
@@ -139,6 +145,7 @@ internal val SettingsHomePageGroups: List<List<SettingsPage>> = listOf(
     listOf(
         SettingsPage.Backup,
         SettingsPage.ListenTogether,
+        SettingsPage.NowPlayingMenu,
         SettingsPage.About
     )
 )

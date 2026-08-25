@@ -112,5 +112,9 @@
     <string name="settings_menu_view_album">菜单项：查看专辑</string>
     <string name="settings_menu_playback_stats">菜单项：播放统计</string>
     <string name="settings_menu_delete_from_playlist_desc">仅对来自你自己创建的网易云歌单的歌曲生效，默认关闭</string>
+    <string name="settings_nowplaying_menu_page">播放页菜单</string>
+    <string name="settings_nowplaying_menu_page_desc">自定义播放页右上角「更多操作」菜单的显示项</string>
+    <string name="settings_nowplaying_menu_section">播放页菜单项</string>
+    <string name="settings_nowplaying_menu_section_desc">关闭即从播放页三点菜单中隐藏对应选项，改动立即生效</string>
     <string name="cd_open_full_playlist">查看完整歌单</string>
 </resources>
