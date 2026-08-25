@@ -53,12 +53,11 @@ internal fun resolveGenericMediaPrefetchCacheKey(
 internal fun PlayerManager.prefetchNextGenericTrackUrl() {
     if (!isApplicationInitialized()) return
 
-    if (player.shuffleModeEnabled || repeatModeSetting == Player.REPEAT_MODE_ONE) {
-        cancelGenericUrlPrefetch(reason = "non_sequential_playback_mode")
-        return
-    }
-
+    // 随机/单曲循环原先直接禁用预取, 导致切歌必须现场解析直链, 网络一抖就卡加载。
+    // 现在统一走下方解析: 单曲循环预取当前歌(直链有时效, 提前换新), 其余模式取下一首。
     val nextIndex = when {
+        repeatModeSetting == Player.REPEAT_MODE_ONE -> currentIndex
+        player.shuffleModeEnabled -> currentIndex + 1
         currentIndex + 1 in currentPlaylist.indices -> currentIndex + 1
         repeatModeSetting == Player.REPEAT_MODE_ALL && currentPlaylist.size > 1 -> 0
         else -> -1
