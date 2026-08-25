@@ -21,6 +21,10 @@
         <item quantity="one">%d selected</item>
         <item quantity="other">%d selected</item>
     </plurals>
+    <plurals name="netease_delete_selected_message">
+        <item quantity="one">Remove %d selected song from the NetEase playlist? This cannot be undone.</item>
+        <item quantity="other">Remove %d selected songs from the NetEase playlist? This cannot be undone.</item>
+    </plurals>
     <plurals name="download_selected_count">
         <item quantity="one">%d song selected</item>
         <item quantity="other">%d songs selected</item>

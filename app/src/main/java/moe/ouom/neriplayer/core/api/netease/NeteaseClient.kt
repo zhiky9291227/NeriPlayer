@@ -1035,6 +1035,32 @@ class NeteaseClient {
         )
     }
 
+    /** 从自己创建/收藏的网易云歌单中删除歌曲（需为歌单创建者） */
+    @Throws(IOException::class)
+    fun deleteSongsFromPlaylist(playlistId: Long, songIds: List<Long>): String {
+        return callWeApi(
+            path = "/playlist/manipulate/tracks",
+            params = buildNeteasePlaylistDeleteTracksParams(playlistId, songIds),
+            usePersistedCookies = true
+        )
+    }
+
+    /** 获取网易云歌单创建者的用户 ID；非歌单或解析失败返回 -1 */
+    suspend fun getPlaylistCreatorUserId(playlistId: Long): Long {
+        return withContext(Dispatchers.IO) {
+            try {
+                val raw = getPlaylistDetailCancellable(playlistId, n = 1, s = 0)
+                val root = JSONObject(raw)
+                val playlist = root.optJSONObject("playlist")
+                val creator = playlist?.optJSONObject("creator")
+                creator?.optLong("userId", -1L) ?: -1L
+            } catch (e: Exception) {
+                NPLogger.w("NERI-NeteaseClient", "getPlaylistCreatorUserId failed: ${e.message}")
+                -1L
+            }
+        }
+    }
+
     @Throws(IOException::class)
     fun getDjRadioDetail(radioId: Long, n: Int = 100000, s: Int = 8): String {
         val url = "https://music.163.com/api/v6/playlist/detail"

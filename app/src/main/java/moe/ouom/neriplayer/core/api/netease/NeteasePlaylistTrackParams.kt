@@ -49,3 +49,29 @@ internal fun buildNeteasePlaylistAddTracksParams(
         "imme" to "true"
     )
 }
+
+internal fun buildNeteasePlaylistDeleteTracksParams(
+    playlistId: Long,
+    songIds: List<Long>
+): Map<String, Any> {
+    require(playlistId > 0L) { "playlistId must be positive" }
+    require(songIds.isNotEmpty()) { "songIds must not be empty" }
+    val ids = songIds.asSequence()
+        .filter { it > 0L }
+        .distinct()
+        .toList()
+    require(ids.isNotEmpty()) { "songIds must contain a positive id" }
+    val idsCsv = ids.joinToString(",")
+    val idsJson = ids.joinToString(
+        separator = ",",
+        prefix = "[",
+        postfix = "]"
+    )
+    return mapOf(
+        "op" to "del",
+        "pid" to playlistId.toString(),
+        "id" to playlistId.toString(),
+        "tracks" to idsCsv,
+        "trackIds" to idsJson
+    )
+}

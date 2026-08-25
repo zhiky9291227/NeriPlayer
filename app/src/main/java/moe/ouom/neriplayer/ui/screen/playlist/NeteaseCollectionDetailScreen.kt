@@ -70,6 +70,7 @@ import androidx.compose.material.icons.automirrored.outlined.PlaylistPlay
 import androidx.compose.material.icons.filled.CheckBox
 import androidx.compose.material.icons.filled.CheckBoxOutlineBlank
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
@@ -85,6 +86,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
@@ -151,6 +153,7 @@ import moe.ouom.neriplayer.ui.component.playlist.showPlaylistBatchExportAddedRes
 import moe.ouom.neriplayer.ui.component.playlist.showPlaylistBatchExportCreatedResult
 import moe.ouom.neriplayer.ui.viewmodel.playlist.NeteaseCollectionDetailUiState
 import moe.ouom.neriplayer.ui.viewmodel.playlist.NeteaseCollectionDetailViewModel
+import moe.ouom.neriplayer.ui.viewmodel.tab.isNeteaseRadarPlaylist
 import moe.ouom.neriplayer.ui.viewmodel.playlist.NeteaseCollectionHeader
 import moe.ouom.neriplayer.data.model.SongItem
 import moe.ouom.neriplayer.ui.viewmodel.tab.AlbumSummary
@@ -158,7 +161,9 @@ import moe.ouom.neriplayer.ui.viewmodel.tab.PlaylistSummary
 import moe.ouom.neriplayer.ui.util.rememberSongDisplayCoverUrl
 import moe.ouom.neriplayer.ui.haptic.HapticFloatingActionButton
 import moe.ouom.neriplayer.ui.haptic.HapticIconButton
+import moe.ouom.neriplayer.ui.haptic.HapticTextButton
 import moe.ouom.neriplayer.ui.feedback.NeriOverlaySnackbarHost
+import moe.ouom.neriplayer.ui.feedback.AppFeedback
 import moe.ouom.neriplayer.ui.feedback.showNeriSnackbar
 import moe.ouom.neriplayer.core.logging.NPLogger
 import moe.ouom.neriplayer.util.format.formatDuration
@@ -205,6 +210,19 @@ fun NeteasePlaylistDetailScreen(
         ui.header?.let { latestHeader = it }
     }
 
+    // 是否为登录用户自己创建的歌单（决定多选工具栏是否显示"从网易云删除"按钮）
+    var canDeleteRemoteTracks by remember { mutableStateOf(false) }
+    LaunchedEffect(ui.header?.id, offlineMode) {
+        val header = ui.header
+        if (offlineMode || header == null || header.isAlbum || header.id <= 0L ||
+            isNeteaseRadarPlaylist(header.id)
+        ) {
+            canDeleteRemoteTracks = false
+        } else {
+            canDeleteRemoteTracks = vm.isCurrentPlaylistOwnedByUser()
+        }
+    }
+
     // 在 Screen 销毁时更新使用记录, 确保返回主页时卡片显示最新信息
     DisposableEffect(Unit) {
         onDispose {
@@ -230,7 +248,9 @@ fun NeteasePlaylistDetailScreen(
         onRetry = vm::retry,
         onBack = onBack,
         onSongClick = onSongClick,
-        offlineMode = offlineMode
+        offlineMode = offlineMode,
+        canDeleteRemoteTracks = canDeleteRemoteTracks,
+        onDeleteRemoteTracks = { ids -> vm.removeTracksFromCurrentPlaylist(ids) }
     )
 }
 
@@ -302,7 +322,9 @@ fun DetailScreen(
     onRetry: () -> Unit,
     onBack: () -> Unit = {},
     onSongClick: (List<SongItem>, Int) -> Unit = { _, _ -> },
-    offlineMode: Boolean = false
+    offlineMode: Boolean = false,
+    canDeleteRemoteTracks: Boolean = false,
+    onDeleteRemoteTracks: (suspend (List<Long>) -> Unit)? = null
 ) {
 
     val context = LocalContext.current
@@ -341,6 +363,8 @@ fun DetailScreen(
     }
     var selectionMode by remember { mutableStateOf(false) }
     var selectedIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
+    var showDeleteConfirmDialog by remember { mutableStateOf(false) }
+    var isDeletingRemote by remember { mutableStateOf(false) }
     fun toggleSelect(id: Long) {
         selectedIds = if (selectedIds.contains(id)) selectedIds - id else selectedIds + id
     }
@@ -650,6 +674,19 @@ fun DetailScreen(
                                         contentDescription = stringResource(R.string.cd_export_playlist)
                                     )
                                 }
+                                if (canDeleteRemoteTracks && onDeleteRemoteTracks != null) {
+                                    HapticIconButton(
+                                        onClick = {
+                                            if (selectedIds.isNotEmpty()) showDeleteConfirmDialog = true
+                                        },
+                                        enabled = selectedIds.isNotEmpty()
+                                    ) {
+                                        Icon(
+                                            Icons.Filled.Delete,
+                                            contentDescription = stringResource(R.string.cd_delete_selected_from_netease)
+                                        )
+                                    }
+                                }
                                 HapticIconButton(
                                     onClick = {
                                         if (selectedIds.isNotEmpty()) {
@@ -925,6 +962,75 @@ fun DetailScreen(
                             }
                         }
                     }
+                }
+
+                // 删除选中歌曲确认弹窗（仅歌单创建者可见入口）//
+                if (showDeleteConfirmDialog) {
+                    AlertDialog(
+                        onDismissRequest = {
+                            if (!isDeletingRemote) showDeleteConfirmDialog = false
+                        },
+                        confirmButton = {
+                            HapticTextButton(
+                                enabled = !isDeletingRemote,
+                                onClick = {
+                                    isDeletingRemote = true
+                                    val idsToRemove = ui.tracks
+                                        .filter { it.id in selectedIds }
+                                        .map { it.id }
+                                    scope.launch {
+                                        try {
+                                            onDeleteRemoteTracks?.invoke(idsToRemove)
+                                            AppFeedback.showToast(
+                                                context = context,
+                                                message = context.getString(
+                                                    R.string.netease_delete_selected_success
+                                                )
+                                            )
+                                            exitSelection()
+                                        } catch (e: Exception) {
+                                            NPLogger.w(
+                                                "NERI-NeteaseCollection",
+                                                "delete selected tracks failed: ${e.message}"
+                                            )
+                                            AppFeedback.showToast(
+                                                context = context,
+                                                message = context.getString(
+                                                    R.string.netease_delete_selected_failed
+                                                )
+                                            )
+                                        } finally {
+                                            isDeletingRemote = false
+                                            showDeleteConfirmDialog = false
+                                        }
+                                    }
+                                }
+                            ) {
+                                Text(
+                                    stringResource(R.string.action_delete),
+                                    color = MaterialTheme.colorScheme.error
+                                )
+                            }
+                        },
+                        dismissButton = {
+                            HapticTextButton(
+                                enabled = !isDeletingRemote,
+                                onClick = { showDeleteConfirmDialog = false }
+                            ) {
+                                Text(stringResource(R.string.action_cancel))
+                            }
+                        },
+                        title = { Text(stringResource(R.string.netease_delete_selected_title)) },
+                        text = {
+                            Text(
+                                pluralStringResource(
+                                    R.plurals.netease_delete_selected_message,
+                                    selectedIds.size,
+                                    selectedIds.size
+                                )
+                            )
+                        }
+                    )
                 }
 
                 // 导出面板 //

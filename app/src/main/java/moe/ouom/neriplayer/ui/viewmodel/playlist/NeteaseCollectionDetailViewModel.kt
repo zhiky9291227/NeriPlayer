@@ -34,6 +34,7 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -273,6 +274,46 @@ class NeteaseCollectionDetailViewModel(application: Application) : AndroidViewMo
                     )
                 }
         }
+    }
+
+    /**
+     * 从当前网易云歌单删除选中的歌曲（仅歌单创建者可用）。
+     * 成功后本地移除这些曲目并更新 trackCount；失败时抛出异常由 UI 层提示。
+     * @return 实际提交删除的歌曲 id 列表
+     */
+    suspend fun removeTracksFromCurrentPlaylist(songIds: List<Long>): List<Long> {
+        if (songIds.isEmpty()) return emptyList()
+        val header = _uiState.value.header ?: error("playlist not loaded")
+        check(!header.isAlbum) { "not a playlist" }
+        val playlistId = header.id
+        return withContext(Dispatchers.IO) {
+            val creatorId = client.getPlaylistCreatorUserId(playlistId)
+            val currentUserId = client.getCurrentUserId()
+            check(creatorId == currentUserId) { "only the playlist owner can remove tracks" }
+            val response = JSONObject(client.deleteSongsFromPlaylist(playlistId, songIds))
+            check(response.optInt("code", -1) == 200) {
+                "delete failed: code=${response.optInt("code", -1)}"
+            }
+            // 本地状态同步：移除曲目 + 更新计数
+            _uiState.update { state ->
+                state.copy(
+                    tracks = state.tracks.filterNot { it.id in songIds },
+                    header = state.header?.copy(
+                        trackCount = (state.header.trackCount - songIds.size).coerceAtLeast(0)
+                    )
+                )
+            }
+            songIds
+        }
+    }
+
+    /** 当前歌单是否由登录用户创建（可删除曲目）；未登录/非本人创建返回 false */
+    suspend fun isCurrentPlaylistOwnedByUser(): Boolean = withContext(Dispatchers.IO) {
+        runCatching {
+            val header = _uiState.value.header ?: return@runCatching false
+            if (header.isAlbum) return@runCatching false
+            client.getPlaylistCreatorUserId(header.id) == client.getCurrentUserId()
+        }.getOrDefault(false)
     }
 
     fun startPlaylist(playlist: PlaylistSummary, forceRefresh: Boolean = false) {

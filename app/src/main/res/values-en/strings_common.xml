@@ -100,4 +100,8 @@
     <string name="cd_close">Close</string>
     <string name="cd_recent">Recent Plays</string>
     <string name="cd_app_background">App background</string>
+    <string name="cd_delete_selected_from_netease">Delete selected songs from NetEase playlist</string>
+    <string name="netease_delete_selected_title">Remove from playlist</string>
+    <string name="netease_delete_selected_success">Removed from NetEase playlist</string>
+    <string name="netease_delete_selected_failed">Delete failed, check network or login status</string>
 </resources>

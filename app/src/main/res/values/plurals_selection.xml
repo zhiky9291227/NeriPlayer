@@ -16,6 +16,9 @@
     <plurals name="common_selected_count">
         <item quantity="other">已选 %d 项</item>
     </plurals>
+    <plurals name="netease_delete_selected_message">
+        <item quantity="other">将选中的 %d 首歌曲从网易云歌单中删除吗？此操作不可撤销。</item>
+    </plurals>
     <plurals name="download_selected_count">
         <item quantity="other">已选 %d 首</item>
     </plurals>

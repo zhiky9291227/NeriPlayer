@@ -100,4 +100,8 @@
     <string name="cd_close">关闭</string>
     <string name="cd_recent">最近播放</string>
     <string name="cd_app_background">应用背景</string>
+    <string name="cd_delete_selected_from_netease">从网易云歌单删除选中歌曲</string>
+    <string name="netease_delete_selected_title">从歌单删除</string>
+    <string name="netease_delete_selected_success">已从网易云歌单删除</string>
+    <string name="netease_delete_selected_failed">删除失败，请检查网络或登录状态</string>
 </resources>
