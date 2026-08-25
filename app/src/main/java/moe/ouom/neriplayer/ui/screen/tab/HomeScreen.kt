@@ -44,12 +44,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyGridScope
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
@@ -80,11 +82,15 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.TopAppBarState
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.AlertDialog
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -124,6 +130,7 @@ import moe.ouom.neriplayer.core.download.toPlaybackSongItem
 import moe.ouom.neriplayer.core.player.PlayerManager
 import moe.ouom.neriplayer.data.playlist.favorite.FavoritePlaylistRepository
 import moe.ouom.neriplayer.data.local.playlist.LocalPlaylistRepository
+import moe.ouom.neriplayer.data.local.playlist.sync.NeteaseRemotePlaylist
 import moe.ouom.neriplayer.data.local.playlist.model.LocalPlaylist
 import moe.ouom.neriplayer.data.playlist.usage.PlaylistUsageRepository
 import moe.ouom.neriplayer.data.local.playlist.system.FavoritesPlaylist
@@ -1064,6 +1071,15 @@ private fun SongRowMini(
     val scope = rememberCoroutineScope()
     val coverUrl = rememberSongDisplayCoverUrl(song)
     var showMenu by remember { mutableStateOf(false) }
+    // 网易云加歌单（与歌单详情页/播放页保持一致的能力）
+    val neteaseCookies by AppContainer.neteaseCookieRepo.cookieFlow.collectAsState()
+    val canAddToNetease = !offlineMode && neteaseCookies.containsKey("MUSIC_U")
+    var showNeteasePlaylistPicker by remember { mutableStateOf(false) }
+    var neteaseRemotePlaylists by remember {
+        mutableStateOf<List<NeteaseRemotePlaylist>>(emptyList())
+    }
+    var neteasePlaylistsLoading by remember { mutableStateOf(false) }
+    var neteasePlaylistsError by remember { mutableStateOf<String?>(null) }
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -1213,7 +1229,70 @@ private fun SongRowMini(
                         showMenu = false
                     }
                 )
+                if (canAddToNetease) {
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.netease_add_song_to_playlist)) },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Outlined.PlaylistAdd,
+                                contentDescription = null
+                            )
+                        },
+                        onClick = {
+                            showMenu = false
+                            showNeteasePlaylistPicker = true
+                            neteaseRemotePlaylists = emptyList()
+                            neteasePlaylistsError = null
+                            neteasePlaylistsLoading = true
+                            scope.launch(Dispatchers.IO) {
+                                runCatching {
+                                    LocalPlaylistRepository.getInstance(context)
+                                        .fetchNeteaseRemotePlaylists(AppContainer.neteaseClient)
+                                }.onSuccess { playlists ->
+                                    neteasePlaylistsLoading = false
+                                    if (playlists.isEmpty()) {
+                                        neteasePlaylistsError = composeResources.getString(
+                                            R.string.local_playlist_sync_netease_no_playlists
+                                        )
+                                    }
+                                    neteaseRemotePlaylists = playlists
+                                }.onFailure { error ->
+                                    neteasePlaylistsLoading = false
+                                    neteasePlaylistsError = error.message?.takeIf(String::isNotBlank)
+                                        ?: composeResources.getString(R.string.local_playlist_sync_netease_load_failed)
+                                }
+                            }
+                        }
+                    )
+                }
             }
+        }
+
+        if (showNeteasePlaylistPicker) {
+            NeteaseSongAddPickerDialog(
+                playlists = neteaseRemotePlaylists,
+                loading = neteasePlaylistsLoading,
+                error = neteasePlaylistsError,
+                onDismiss = { showNeteasePlaylistPicker = false },
+                onPick = { playlist ->
+                    showNeteasePlaylistPicker = false
+                    scope.launch(Dispatchers.IO) {
+                        val result = LocalPlaylistRepository.getInstance(context)
+                            .syncSongsToNeteasePlaylist(
+                                client = AppContainer.neteaseClient,
+                                targetPlaylistId = playlist.id,
+                                songs = listOf(song)
+                            )
+                        val message = composeResources.getString(
+                            R.string.local_playlist_sync_netease_target,
+                            playlist.name
+                        ) + " " + (result.message ?: composeResources.getString(R.string.netease_add_song_done))
+                        withContext(Dispatchers.Main) {
+                            onShowSnackbar(message)
+                        }
+                    }
+                }
+            )
         }
     }
 }
@@ -2159,4 +2238,74 @@ internal fun resolveHomeContinueCardWidthDp(
 
 internal fun buildHomeSongInfo(song: SongItem): String {
     return "${song.displayName()}-${song.displayArtist()}"
+}
+
+@Composable
+private fun NeteaseSongAddPickerDialog(
+    playlists: List<NeteaseRemotePlaylist>,
+    loading: Boolean,
+    error: String?,
+    onDismiss: () -> Unit,
+    onPick: (NeteaseRemotePlaylist) -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(stringResource(R.string.local_playlist_sync_netease_picker_title))
+        },
+        text = {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                if (loading) {
+                    Text(
+                        text = stringResource(
+                            R.string.local_playlist_sync_netease_loading_playlists
+                        ),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                error?.let { message ->
+                    Text(
+                        text = message,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+                LazyColumn(modifier = Modifier.heightIn(max = 360.dp)) {
+                    itemsIndexed(
+                        items = playlists,
+                        key = { _, playlist -> playlist.id }
+                    ) { _, playlist ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .clickable(enabled = !loading) { onPick(playlist) }
+                                .padding(horizontal = 4.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Outlined.PlaylistAdd,
+                                contentDescription = null
+                            )
+                            Text(
+                                text = playlist.name,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.action_cancel))
+            }
+        }
+    )
 }
