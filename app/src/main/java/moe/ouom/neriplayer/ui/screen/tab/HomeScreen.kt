@@ -57,6 +57,7 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.outlined.PlaylistAdd
 import androidx.compose.material.icons.automirrored.outlined.PlaylistPlay
 import androidx.compose.material.icons.filled.Favorite
@@ -153,6 +154,12 @@ import moe.ouom.neriplayer.ui.viewmodel.tab.HomeSectionState
 import moe.ouom.neriplayer.ui.viewmodel.tab.HomeViewModel
 import moe.ouom.neriplayer.ui.viewmodel.tab.NeteaseHomePlaylistSource
 import moe.ouom.neriplayer.ui.viewmodel.tab.NeteaseHomeSongSource
+import moe.ouom.neriplayer.ui.viewmodel.tab.NETEASE_DAILY_RECOMMEND_PLAYLIST_VIEW_ID
+import moe.ouom.neriplayer.ui.viewmodel.tab.NETEASE_PRIVATE_FM_PLAYLIST_VIEW_ID
+import moe.ouom.neriplayer.ui.viewmodel.tab.NETEASE_PRIVATE_RADAR_PLAYLIST_ID
+import moe.ouom.neriplayer.ui.viewmodel.tab.NETEASE_TOPLIST_SOARING_ID
+import moe.ouom.neriplayer.ui.viewmodel.tab.NETEASE_TOPLIST_HOT_ID
+import moe.ouom.neriplayer.ui.viewmodel.tab.NETEASE_TOPLIST_NEW_ID
 import moe.ouom.neriplayer.ui.viewmodel.tab.PlaylistSummary
 import moe.ouom.neriplayer.ui.viewmodel.tab.YouTubeMusicPlaylist
 import moe.ouom.neriplayer.ui.viewmodel.tab.favoriteId
@@ -251,6 +258,13 @@ fun HomeScreen(
 ) {
     val context = LocalContext.current
     val appContext = remember(context) { context.applicationContext }
+    // 板块标题预解析(stringResource 不能在非 Composable lambda 里调用)
+    val radarSongsTitleText = stringResource(R.string.recommend_radar)
+    val dailySongsTitleText = stringResource(R.string.home_netease_daily_songs)
+    val privateFmTitleText = stringResource(R.string.home_netease_private_fm)
+    val topSoaringTitleText = stringResource(R.string.recommend_trending)
+    val topHotTitleText = stringResource(R.string.home_netease_hot_rank)
+    val topNewTitleText = stringResource(R.string.home_netease_new_rank)
     val vm: HomeViewModel = viewModel(
         factory = viewModelFactory {
             initializer {
@@ -738,7 +752,18 @@ fun HomeScreen(
                                         favoriteSongs = favoriteSongs,
                                         onFavoriteToggle = ::toggleHomeSongFavorite,
                                         onShowSnackbar = showHomeSnackbar,
-                                        offlineMode = offlineMode
+                                        offlineMode = offlineMode,
+                                        onOpenFullPlaylist = {
+                                            onItemClick(
+                                                PlaylistSummary(
+                                                    id = NETEASE_PRIVATE_RADAR_PLAYLIST_ID,
+                                                    name = radarSongsTitleText,
+                                                    picUrl = "",
+                                                    playCount = 0L,
+                                                    trackCount = 0
+                                                )
+                                            )
+                                        }
                                     )
                                 }
 
@@ -797,7 +822,36 @@ fun HomeScreen(
                                             favoriteSongs = favoriteSongs,
                                             onFavoriteToggle = ::toggleHomeSongFavorite,
                                             onShowSnackbar = showHomeSnackbar,
-                                            offlineMode = offlineMode
+                                            offlineMode = offlineMode,
+                                            onOpenFullPlaylist = when (sectionState.source) {
+                                                NeteaseHomeSongSource.DAILY_RECOMMEND -> {
+                                                    {
+                                                        onItemClick(
+                                                            PlaylistSummary(
+                                                                id = NETEASE_DAILY_RECOMMEND_PLAYLIST_VIEW_ID,
+                                                                name = dailySongsTitleText,
+                                                                picUrl = "",
+                                                                playCount = 0L,
+                                                                trackCount = 0
+                                                            )
+                                                        )
+                                                    }
+                                                }
+                                                NeteaseHomeSongSource.PRIVATE_FM -> {
+                                                    {
+                                                        onItemClick(
+                                                            PlaylistSummary(
+                                                                id = NETEASE_PRIVATE_FM_PLAYLIST_VIEW_ID,
+                                                                name = privateFmTitleText,
+                                                                picUrl = "",
+                                                                playCount = 0L,
+                                                                trackCount = 0
+                                                            )
+                                                        )
+                                                    }
+                                                }
+                                                else -> null
+                                            }
                                         )
                                     }
                             }
@@ -818,7 +872,49 @@ fun HomeScreen(
                                         favoriteSongs = favoriteSongs,
                                         onFavoriteToggle = ::toggleHomeSongFavorite,
                                         onShowSnackbar = showHomeSnackbar,
-                                        offlineMode = offlineMode
+                                        offlineMode = offlineMode,
+                                        onOpenFullPlaylist = when (sectionState.source) {
+                                            NeteaseHomeSongSource.TOP_SOARING -> {
+                                                {
+                                                    onItemClick(
+                                                        PlaylistSummary(
+                                                            id = NETEASE_TOPLIST_SOARING_ID,
+                                                            name = topSoaringTitleText,
+                                                            picUrl = "",
+                                                            playCount = 0L,
+                                                            trackCount = 0
+                                                        )
+                                                    )
+                                                }
+                                            }
+                                            NeteaseHomeSongSource.TOP_HOT -> {
+                                                {
+                                                    onItemClick(
+                                                        PlaylistSummary(
+                                                            id = NETEASE_TOPLIST_HOT_ID,
+                                                            name = topHotTitleText,
+                                                            picUrl = "",
+                                                            playCount = 0L,
+                                                            trackCount = 0
+                                                        )
+                                                    )
+                                                }
+                                            }
+                                            NeteaseHomeSongSource.TOP_NEW -> {
+                                                {
+                                                    onItemClick(
+                                                        PlaylistSummary(
+                                                            id = NETEASE_TOPLIST_NEW_ID,
+                                                            name = topNewTitleText,
+                                                            picUrl = "",
+                                                            playCount = 0L,
+                                                            trackCount = 0
+                                                        )
+                                                    )
+                                                }
+                                            }
+                                            else -> null
+                                        }
                                     )
                                 }
                             }
@@ -897,7 +993,8 @@ private fun LazyGridScope.addNeteaseSongSection(
     favoriteSongs: List<SongItem>,
     onFavoriteToggle: (SongItem, Boolean) -> Unit,
     onShowSnackbar: (String) -> Unit,
-    offlineMode: Boolean
+    offlineMode: Boolean,
+    onOpenFullPlaylist: (() -> Unit)? = null
 ) {
     item(
         key = registerKey("$sectionKey:header"),
@@ -905,7 +1002,8 @@ private fun LazyGridScope.addNeteaseSongSection(
     ) {
         SectionHeader(
             icon = icon,
-            title = stringResource(sectionState.source.titleRes)
+            title = stringResource(sectionState.source.titleRes),
+            onClick = onOpenFullPlaylist
         )
     }
     sectionContent(
@@ -1000,10 +1098,22 @@ private fun neteaseSongSectionIcon(source: NeteaseHomeSongSource): ImageVector {
 }
 
 @Composable
-private fun SectionHeader(icon: ImageVector, title: String) {
+private fun SectionHeader(
+    icon: ImageVector,
+    title: String,
+    onClick: (() -> Unit)? = null
+) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.padding(horizontal = 8.dp, vertical = 10.dp)
+        modifier = Modifier
+            .padding(horizontal = 8.dp, vertical = 10.dp)
+            .then(
+                if (onClick != null) {
+                    Modifier.clip(RoundedCornerShape(8.dp)).clickable(onClick = onClick)
+                } else {
+                    Modifier
+                }
+            )
     ) {
         Icon(
             imageVector = icon,
@@ -1017,6 +1127,15 @@ private fun SectionHeader(icon: ImageVector, title: String) {
             color = MaterialTheme.colorScheme.primary,
             modifier = Modifier.padding(start = 8.dp)
         )
+        if (onClick != null) {
+            Spacer(Modifier.width(4.dp))
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = stringResource(R.string.cd_open_full_playlist),
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(18.dp)
+            )
+        }
     }
 }
 

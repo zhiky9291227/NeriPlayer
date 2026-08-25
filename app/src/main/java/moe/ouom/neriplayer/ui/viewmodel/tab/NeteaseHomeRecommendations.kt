@@ -10,6 +10,13 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 internal const val NETEASE_PRIVATE_RADAR_PLAYLIST_ID = 3_136_952_023L
+
+/** 网易云每日推荐对应的"歌单形式"详情页 ID（服务端按登录账号动态返回当日内容） */
+internal const val NETEASE_DAILY_RECOMMEND_PLAYLIST_VIEW_ID = 3_136_957_836L
+
+/** 私人 FM 对应的歌单形式视图 ID */
+internal const val NETEASE_PRIVATE_FM_PLAYLIST_VIEW_ID = 3_136_952_023L
+
 internal const val NETEASE_TOPLIST_SOARING_ID = 19_723_756L
 internal const val NETEASE_TOPLIST_NEW_ID = 3_779_629L
 internal const val NETEASE_TOPLIST_HOT_ID = 3_778_678L
