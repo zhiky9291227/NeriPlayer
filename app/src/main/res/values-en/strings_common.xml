@@ -104,4 +104,8 @@
     <string name="netease_delete_selected_title">Remove from playlist</string>
     <string name="netease_delete_selected_success">Removed from NetEase playlist</string>
     <string name="netease_delete_selected_failed">Delete failed, check network or login status</string>
+    <string name="netease_add_song_to_playlist">Add to NetEase playlist</string>
+    <string name="netease_delete_song_from_playlist">Remove from this playlist</string>
+    <string name="netease_add_song_done">Done</string>
+    <string name="netease_delete_single_song_message">Remove this song from the NetEase playlist? This cannot be undone.</string>
 </resources>
