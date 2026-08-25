@@ -490,6 +490,151 @@ object AutoSettingsSchema {
         val homeCardRecommended = autoSetting(
             titleRes = R.string.settings_home_card_netease_recommended
         )
+
+        // 播放页「更多操作」菜单项显示开关(关闭即隐藏对应选项)
+        @AutoSetting(
+            key = "nowplaying_menu_song_info",
+            type = SettingValueType.Boolean,
+            defaultBoolean = true,
+            order = 100,
+            ui = SettingUiType.Switch
+        )
+        val nowPlayingMenuSongInfo = autoSetting(
+            titleRes = R.string.settings_menu_song_info
+        )
+
+        @AutoSetting(
+            key = "nowplaying_menu_add_netease",
+            type = SettingValueType.Boolean,
+            defaultBoolean = true,
+            order = 110,
+            ui = SettingUiType.Switch
+        )
+        val nowPlayingMenuAddNetease = autoSetting(
+            titleRes = R.string.nowplaying_queue_add_to_netease
+        )
+
+        @AutoSetting(
+            key = "nowplaying_menu_edit_info",
+            type = SettingValueType.Boolean,
+            defaultBoolean = true,
+            order = 120,
+            ui = SettingUiType.Switch
+        )
+        val nowPlayingMenuEditInfo = autoSetting(
+            titleRes = R.string.music_edit_info
+        )
+
+        @AutoSetting(
+            key = "nowplaying_menu_quality",
+            type = SettingValueType.Boolean,
+            defaultBoolean = true,
+            order = 130,
+            ui = SettingUiType.Switch
+        )
+        val nowPlayingMenuQuality = autoSetting(
+            titleRes = R.string.nowplaying_quality_switch_title
+        )
+
+        @AutoSetting(
+            key = "nowplaying_menu_audio_effects",
+            type = SettingValueType.Boolean,
+            defaultBoolean = true,
+            order = 140,
+            ui = SettingUiType.Switch
+        )
+        val nowPlayingMenuAudioEffects = autoSetting(
+            titleRes = R.string.nowplaying_audio_effects_title
+        )
+
+        @AutoSetting(
+            key = "nowplaying_menu_download",
+            type = SettingValueType.Boolean,
+            defaultBoolean = true,
+            order = 150,
+            ui = SettingUiType.Switch
+        )
+        val nowPlayingMenuDownload = autoSetting(
+            titleRes = R.string.download_to_local
+        )
+
+        @AutoSetting(
+            key = "nowplaying_menu_lyric_behavior",
+            type = SettingValueType.Boolean,
+            defaultBoolean = true,
+            order = 160,
+            ui = SettingUiType.Switch
+        )
+        val nowPlayingMenuLyricBehavior = autoSetting(
+            titleRes = R.string.lyrics_adjust_behavior
+        )
+
+        @AutoSetting(
+            key = "nowplaying_menu_lyric_font",
+            type = SettingValueType.Boolean,
+            defaultBoolean = true,
+            order = 170,
+            ui = SettingUiType.Switch
+        )
+        val nowPlayingMenuLyricFont = autoSetting(
+            titleRes = R.string.lyrics_font_size
+        )
+
+        @AutoSetting(
+            key = "nowplaying_menu_view_album",
+            type = SettingValueType.Boolean,
+            defaultBoolean = true,
+            order = 180,
+            ui = SettingUiType.Switch
+        )
+        val nowPlayingMenuViewAlbum = autoSetting(
+            titleRes = R.string.settings_menu_view_album
+        )
+
+        @AutoSetting(
+            key = "nowplaying_menu_share",
+            type = SettingValueType.Boolean,
+            defaultBoolean = true,
+            order = 190,
+            ui = SettingUiType.Switch
+        )
+        val nowPlayingMenuShare = autoSetting(
+            titleRes = R.string.action_share
+        )
+
+        @AutoSetting(
+            key = "nowplaying_menu_stats",
+            type = SettingValueType.Boolean,
+            defaultBoolean = true,
+            order = 200,
+            ui = SettingUiType.Switch
+        )
+        val nowPlayingMenuStats = autoSetting(
+            titleRes = R.string.settings_menu_playback_stats
+        )
+
+        @AutoSetting(
+            key = "nowplaying_menu_listen_together",
+            type = SettingValueType.Boolean,
+            defaultBoolean = true,
+            order = 210,
+            ui = SettingUiType.Switch
+        )
+        val nowPlayingMenuListenTogether = autoSetting(
+            titleRes = R.string.listen_together_title
+        )
+
+        @AutoSetting(
+            key = "nowplaying_menu_delete_from_playlist",
+            type = SettingValueType.Boolean,
+            defaultBoolean = false,
+            order = 220,
+            ui = SettingUiType.Switch
+        )
+        val nowPlayingMenuDeleteFromPlaylist = autoSetting(
+            titleRes = R.string.netease_delete_song_from_playlist,
+            descriptionRes = R.string.settings_menu_delete_from_playlist_desc
+        )
     }
 
     /*

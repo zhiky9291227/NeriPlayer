@@ -108,4 +108,8 @@
     <string name="netease_delete_song_from_playlist">Remove from this playlist</string>
     <string name="netease_add_song_done">Done</string>
     <string name="netease_delete_single_song_message">Remove this song from the NetEase playlist? This cannot be undone.</string>
+    <string name="settings_menu_song_info">Menu item: Get song info</string>
+    <string name="settings_menu_view_album">Menu item: View album</string>
+    <string name="settings_menu_playback_stats">Menu item: Playback stats</string>
+    <string name="settings_menu_delete_from_playlist_desc">Only for songs from your own NetEase playlists, off by default</string>
 </resources>

@@ -11,6 +11,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.automirrored.outlined.PlaylistAdd
 import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.outlined.Download
@@ -25,6 +26,7 @@ import androidx.compose.material.icons.outlined.SkipNext
 import androidx.compose.material.icons.outlined.Timer
 import androidx.compose.material.icons.outlined.Tune
 import moe.ouom.neriplayer.ui.component.overlay.DensityScaledAlertDialog as AlertDialog
+import moe.ouom.neriplayer.data.settings.NowPlayingMenuVisibility
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -108,41 +110,67 @@ internal fun MoreOptionsMainContent(
     onShowSongDetails: () -> Unit,
     onShowQualitySwitch: () -> Unit,
     onAddToNeteasePlaylist: () -> Unit = {},
+    onDeleteFromNeteasePlaylist: (suspend () -> Unit)? = null,
+    menuVisibility: NowPlayingMenuVisibility = NowPlayingMenuVisibility(),
     onEnterAlbum: (AlbumSummary) -> Unit,
     onDismissSheet: (() -> Unit) -> Unit
 ) {
     val scrollState = rememberScrollState()
+    val confirmScope = rememberCoroutineScope()
+    var showDeleteConfirm by remember { mutableStateOf(false) }
+    var isDeletingRemote by remember { mutableStateOf(false) }
     Column(
         Modifier
             .bottomSheetScrollGuard { scrollState.value == 0 }
             .verticalScroll(scrollState)
             .padding(bottom = 32.dp)
     ) {
-        MetadataAndPlaybackActions(
-            audioInfo = currentPlaybackAudioInfo,
-            isDismissing = isDismissing,
-            isLocalSong = isLocalSong,
-            onOpenSearch = onOpenSearch,
-            onOpenEditInfo = onOpenEditInfo,
-            onOpenPlaybackSound = onOpenPlaybackSound,
-            onShowQualitySwitch = onShowQualitySwitch,
-            onAddToNeteasePlaylist = onAddToNeteasePlaylist
-        )
-        DownloadOrDetailsAction(
-            viewModel = viewModel,
-            song = originalSong,
-            isLocalSong = isLocalSong,
-            onShowSongDetails = onShowSongDetails
-        )
-        LyricsAndAlbumActions(
-            song = originalSong,
-            lyricFontScale = lyricFontScale,
-            translationFontScale = translationFontScale,
-            onOpenLyricBehavior = onOpenLyricBehavior,
-            onOpenFontSize = onOpenFontSize,
-            onEnterAlbum = onEnterAlbum,
-            snackbarHostState = snackbarHostState
-        )
+        if (menuVisibility.songInfo || (!isLocalSong && menuVisibility.addToNetease) || menuVisibility.editInfo) {
+            MetadataAndPlaybackActions(
+                audioInfo = currentPlaybackAudioInfo,
+                isDismissing = isDismissing,
+                isLocalSong = isLocalSong,
+                showSongInfo = menuVisibility.songInfo,
+                showAddToNetease = menuVisibility.addToNetease,
+                showEditInfo = menuVisibility.editInfo,
+                showQualitySwitch = menuVisibility.qualitySwitch,
+                showAudioEffects = menuVisibility.audioEffects,
+                onOpenSearch = onOpenSearch,
+                onOpenEditInfo = onOpenEditInfo,
+                onOpenPlaybackSound = onOpenPlaybackSound,
+                onShowQualitySwitch = onShowQualitySwitch,
+                onAddToNeteasePlaylist = onAddToNeteasePlaylist
+            )
+        }
+        if (menuVisibility.download) {
+            DownloadOrDetailsAction(
+                viewModel = viewModel,
+                song = originalSong,
+                isLocalSong = isLocalSong,
+                onShowSongDetails = onShowSongDetails
+            )
+        } else if (isLocalSong) {
+            DownloadOrDetailsAction(
+                viewModel = viewModel,
+                song = originalSong,
+                isLocalSong = true,
+                onShowSongDetails = onShowSongDetails
+            )
+        }
+        if (menuVisibility.lyricBehavior || menuVisibility.lyricFontSize || menuVisibility.viewAlbum) {
+            LyricsAndAlbumActions(
+                song = originalSong,
+                lyricFontScale = lyricFontScale,
+                translationFontScale = translationFontScale,
+                showLyricBehavior = menuVisibility.lyricBehavior,
+                showLyricFontSize = menuVisibility.lyricFontSize,
+                showViewAlbum = menuVisibility.viewAlbum,
+                onOpenLyricBehavior = onOpenLyricBehavior,
+                onOpenFontSize = onOpenFontSize,
+                onEnterAlbum = onEnterAlbum,
+                snackbarHostState = snackbarHostState
+            )
+        }
         if (PlayerManager.isBiliTrack(originalSong)) {
             ListItem(
                 headlineContent = { Text(stringResource(R.string.bili_video_skip_manage)) },
@@ -150,17 +178,83 @@ internal fun MoreOptionsMainContent(
                 modifier = Modifier.clickable(onClick = onOpenBiliVideoSkip)
             )
         }
-        ShareSongAction(
-            song = originalSong,
-            queue = queue,
-            snackbarHostState = snackbarHostState,
-            onDismissSheet = onDismissSheet
-        )
-        PlaybackStatsAction(originalSong)
-        ListItem(
-            headlineContent = { Text(stringResource(R.string.listen_together_title)) },
-            leadingContent = { Icon(Icons.Outlined.Headphones, null) },
-            modifier = Modifier.clickable(onClick = onOpenListenTogether)
+        // 从网易云歌单删除当前歌(仅当来源歌单为用户自建时由宿主传入非空回调)
+        if (onDeleteFromNeteasePlaylist != null && menuVisibility.deleteFromPlaylist) {
+            ListItem(
+                headlineContent = {
+                    Text(
+                        stringResource(R.string.netease_delete_song_from_playlist),
+                        color = MaterialTheme.colorScheme.error
+                    )
+                },
+                leadingContent = {
+                    Icon(
+                        Icons.Filled.Delete,
+                        null,
+                        tint = MaterialTheme.colorScheme.error
+                    )
+                },
+                modifier = Modifier.clickable(enabled = !isDismissing && !isDeletingRemote) {
+                    showDeleteConfirm = true
+                }
+            )
+        }
+        if (menuVisibility.share) {
+            ShareSongAction(
+                song = originalSong,
+                queue = queue,
+                snackbarHostState = snackbarHostState,
+                onDismissSheet = onDismissSheet
+            )
+        }
+        if (menuVisibility.playbackStats) {
+            PlaybackStatsAction(originalSong)
+        }
+        if (menuVisibility.listenTogether) {
+            ListItem(
+                headlineContent = { Text(stringResource(R.string.listen_together_title)) },
+                leadingContent = { Icon(Icons.Outlined.Headphones, null) },
+                modifier = Modifier.clickable(onClick = onOpenListenTogether)
+            )
+        }
+    }
+
+    if (showDeleteConfirm) {
+        AlertDialog(
+            onDismissRequest = { if (!isDeletingRemote) showDeleteConfirm = false },
+            confirmButton = {
+                HapticTextButton(
+                    enabled = !isDeletingRemote,
+                    onClick = {
+                        isDeletingRemote = true
+                        confirmScope.launch {
+                            try {
+                                onDeleteFromNeteasePlaylist?.invoke()
+                            } catch (e: Exception) {
+                                NPLogger.w("MoreOptions", "delete current track failed: ${e.message}")
+                            } finally {
+                                isDeletingRemote = false
+                                showDeleteConfirm = false
+                            }
+                        }
+                    }
+                ) {
+                    Text(
+                        stringResource(R.string.action_delete),
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            },
+            dismissButton = {
+                HapticTextButton(
+                    enabled = !isDeletingRemote,
+                    onClick = { showDeleteConfirm = false }
+                ) {
+                    Text(stringResource(R.string.action_cancel))
+                }
+            },
+            title = { Text(stringResource(R.string.netease_delete_selected_title)) },
+            text = { Text(stringResource(R.string.netease_delete_single_song_message)) }
         )
     }
 }
@@ -170,21 +264,28 @@ private fun MetadataAndPlaybackActions(
     audioInfo: PlaybackAudioInfo?,
     isDismissing: Boolean,
     isLocalSong: Boolean,
+    showSongInfo: Boolean,
+    showAddToNetease: Boolean,
+    showEditInfo: Boolean,
+    showQualitySwitch: Boolean,
+    showAudioEffects: Boolean,
     onOpenSearch: () -> Unit,
     onOpenEditInfo: () -> Unit,
     onOpenPlaybackSound: () -> Unit,
     onShowQualitySwitch: () -> Unit,
     onAddToNeteasePlaylist: () -> Unit = {}
 ) {
-    ListItem(
-        headlineContent = { Text(stringResource(R.string.music_get_info)) },
-        leadingContent = { Icon(Icons.Outlined.Info, null) },
-        modifier = Modifier.clickable(
-            enabled = !isDismissing,
-            onClick = onOpenSearch
+    if (showSongInfo) {
+        ListItem(
+            headlineContent = { Text(stringResource(R.string.music_get_info)) },
+            leadingContent = { Icon(Icons.Outlined.Info, null) },
+            modifier = Modifier.clickable(
+                enabled = !isDismissing,
+                onClick = onOpenSearch
+            )
         )
-    )
-    if (!isLocalSong) {
+    }
+    if (!isLocalSong && showAddToNetease) {
         ListItem(
             headlineContent = { Text(stringResource(R.string.nowplaying_queue_add_to_netease)) },
             leadingContent = { Icon(Icons.AutoMirrored.Outlined.PlaylistAdd, null) },
@@ -194,12 +295,14 @@ private fun MetadataAndPlaybackActions(
             )
         )
     }
-    ListItem(
-        headlineContent = { Text(stringResource(R.string.music_edit_info)) },
-        leadingContent = { Icon(Icons.Outlined.Edit, null) },
-        modifier = Modifier.clickable(onClick = onOpenEditInfo)
-    )
-    if (audioInfo?.qualityOptions.orEmpty().size > 1) {
+    if (showEditInfo) {
+        ListItem(
+            headlineContent = { Text(stringResource(R.string.music_edit_info)) },
+            leadingContent = { Icon(Icons.Outlined.Edit, null) },
+            modifier = Modifier.clickable(onClick = onOpenEditInfo)
+        )
+    }
+    if (showQualitySwitch && audioInfo?.qualityOptions.orEmpty().size > 1) {
         ListItem(
             headlineContent = { Text(stringResource(R.string.nowplaying_quality_switch_title)) },
             leadingContent = { Icon(Icons.Outlined.MusicNote, null) },
@@ -209,12 +312,14 @@ private fun MetadataAndPlaybackActions(
             modifier = Modifier.clickable(onClick = onShowQualitySwitch)
         )
     }
-    ListItem(
-        headlineContent = { Text(stringResource(R.string.nowplaying_audio_effects_title)) },
-        leadingContent = { Icon(Icons.Outlined.Tune, null) },
-        supportingContent = { Text(stringResource(R.string.nowplaying_audio_effects_desc)) },
-        modifier = Modifier.clickable(onClick = onOpenPlaybackSound)
-    )
+    if (showAudioEffects) {
+        ListItem(
+            headlineContent = { Text(stringResource(R.string.nowplaying_audio_effects_title)) },
+            leadingContent = { Icon(Icons.Outlined.Tune, null) },
+            supportingContent = { Text(stringResource(R.string.nowplaying_audio_effects_desc)) },
+            modifier = Modifier.clickable(onClick = onOpenPlaybackSound)
+        )
+    }
 }
 
 @Composable
@@ -328,15 +433,21 @@ private fun LyricsAndAlbumActions(
     translationFontScale: Float,
     onOpenLyricBehavior: () -> Unit,
     onOpenFontSize: () -> Unit,
+    showLyricBehavior: Boolean = true,
+    showLyricFontSize: Boolean = true,
+    showViewAlbum: Boolean = true,
     onEnterAlbum: (AlbumSummary) -> Unit,
     snackbarHostState: SnackbarHostState
 ) {
-    ListItem(
-        headlineContent = { Text(stringResource(R.string.lyrics_adjust_behavior)) },
-        leadingContent = { Icon(Icons.Outlined.Timer, null) },
-        modifier = Modifier.clickable(onClick = onOpenLyricBehavior)
-    )
-    ListItem(
+    if (showLyricBehavior) {
+        ListItem(
+            headlineContent = { Text(stringResource(R.string.lyrics_adjust_behavior)) },
+            leadingContent = { Icon(Icons.Outlined.Timer, null) },
+            modifier = Modifier.clickable(onClick = onOpenLyricBehavior)
+        )
+    }
+    if (showLyricFontSize) {
+        ListItem(
         headlineContent = { Text(stringResource(R.string.lyrics_font_size)) },
         leadingContent = { Icon(Icons.Outlined.FormatSize, null) },
         supportingContent = {
@@ -350,6 +461,8 @@ private fun LyricsAndAlbumActions(
         },
         modifier = Modifier.clickable(onClick = onOpenFontSize)
     )
+    }
+    if (!showViewAlbum) return
     if (!isNeteaseAlbumNavigationSource(song)) return
 
     val albumName = neteaseAlbumDisplayName(song)

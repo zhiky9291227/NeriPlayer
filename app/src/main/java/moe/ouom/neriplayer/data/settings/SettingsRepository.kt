@@ -30,6 +30,7 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
@@ -439,6 +440,39 @@ class SettingsRepository(private val context: Context) {
 
     val homeCardRecommendedFlow: Flow<Boolean> =
         autoSettingsRepository.homeCardRecommendedFlow
+
+    /** 播放页「更多操作」菜单项可见性(个性化设置里可逐项关闭) */
+    val nowPlayingMenuVisibilityFlow: Flow<NowPlayingMenuVisibility> = combine(
+        autoSettingsRepository.nowPlayingMenuSongInfoFlow,
+        autoSettingsRepository.nowPlayingMenuAddNeteaseFlow,
+        autoSettingsRepository.nowPlayingMenuEditInfoFlow,
+        autoSettingsRepository.nowPlayingMenuQualityFlow,
+        autoSettingsRepository.nowPlayingMenuAudioEffectsFlow,
+        autoSettingsRepository.nowPlayingMenuDownloadFlow,
+        autoSettingsRepository.nowPlayingMenuLyricBehaviorFlow,
+        autoSettingsRepository.nowPlayingMenuLyricFontFlow,
+        autoSettingsRepository.nowPlayingMenuViewAlbumFlow,
+        autoSettingsRepository.nowPlayingMenuShareFlow,
+        autoSettingsRepository.nowPlayingMenuStatsFlow,
+        autoSettingsRepository.nowPlayingMenuListenTogetherFlow,
+        autoSettingsRepository.nowPlayingMenuDeleteFromPlaylistFlow
+    ) { values: Array<Boolean> ->
+        NowPlayingMenuVisibility(
+            songInfo = values[0],
+            addToNetease = values[1],
+            editInfo = values[2],
+            qualitySwitch = values[3],
+            audioEffects = values[4],
+            download = values[5],
+            lyricBehavior = values[6],
+            lyricFontSize = values[7],
+            viewAlbum = values[8],
+            share = values[9],
+            playbackStats = values[10],
+            listenTogether = values[11],
+            deleteFromPlaylist = values[12]
+        )
+    }
 
     val playbackFadeInFlow: Flow<Boolean> =
         dataStoreSettingFlow { it[SettingsKeys.PLAYBACK_FADE_IN] ?: true }

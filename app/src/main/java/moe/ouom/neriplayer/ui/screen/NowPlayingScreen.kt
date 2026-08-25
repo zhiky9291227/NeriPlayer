@@ -251,6 +251,9 @@ import moe.ouom.neriplayer.data.model.BiliUploaderSummary
 import moe.ouom.neriplayer.data.platform.youtube.extractYouTubeMusicVideoId
 import moe.ouom.neriplayer.data.platform.youtube.isYouTubeMusicSong
 import moe.ouom.neriplayer.data.settings.DEFAULT_CLOUD_MUSIC_LYRIC_OFFSET_MS
+import moe.ouom.neriplayer.data.settings.NowPlayingMenuVisibility
+import moe.ouom.neriplayer.ui.viewmodel.tab.isNeteaseRadarPlaylist
+import org.json.JSONObject
 import moe.ouom.neriplayer.data.settings.DEFAULT_QQ_MUSIC_LYRIC_OFFSET_MS
 import moe.ouom.neriplayer.data.settings.LYRIC_DEFAULT_OFFSET_STEP_MS
 import moe.ouom.neriplayer.data.settings.LyricFontScalePage
@@ -4213,7 +4216,57 @@ fun MoreOptionsSheet(
     val currentSong by PlayerManager.currentSongFlow.collectAsStateWithLifecycle()
     val actualSong = currentSong?.takeIf { it.sameIdentityAs(originalSong) } ?: originalSong
     val isLocalSong = actualSong.isLocalSong()
+    // 播放页菜单项可见性(个性化设置) + 当前歌是否来自自建网易云歌单
+    val appContext = LocalContext.current
+    val menuVisibility by AppContainer.settingsRepo.nowPlayingMenuVisibilityFlow
+        .collectAsStateWithLifecycle(initialValue = NowPlayingMenuVisibility())
+    var currentTrackPlaylistOwnerCheck by remember(actualSong.stableKey()) {
+        mutableStateOf<Pair<Long, Boolean>?>(null)
+    }
+    LaunchedEffect(actualSong.stableKey()) {
+        if (actualSong.isLocalSong() || actualSong.id <= 0L ||
+            isNeteaseRadarPlaylist(actualSong.id)
+        ) {
+            currentTrackPlaylistOwnerCheck = null
+            return@LaunchedEffect
+        }
+        val ownedPlaylistId = withContext(Dispatchers.IO) {
+            runCatching {
+                val client = AppContainer.neteaseClient
+                val creatorId = client.getPlaylistCreatorUserId(actualSong.id)
+                val userId = client.getCurrentUserId()
+                actualSong.id.takeIf { creatorId == userId && creatorId > 0L }
+            }.getOrNull()
+        }
+        currentTrackPlaylistOwnerCheck = ownedPlaylistId?.let { it to true }
+    }
     val playbackSoundState by PlayerManager.playbackSoundStateFlow.collectAsStateWithLifecycle()
+
+    suspend fun onDeleteCurrentFromNeteasePlaylist(playlistId: Long) {
+        val deleteContext = appContext
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val client = AppContainer.neteaseClient
+                JSONObject(
+                    client.deleteSongsFromPlaylist(playlistId, listOf(actualSong.id))
+                ).optInt("code", -1)
+            }.getOrNull()
+        }?.takeIf { it == 200 }?.also {
+            withContext(Dispatchers.Main) {
+                AppFeedback.showToast(
+                    context = deleteContext,
+                    message = deleteContext.getString(R.string.netease_delete_selected_success)
+                )
+            }
+        } ?: run {
+            withContext(Dispatchers.Main) {
+                AppFeedback.showToast(
+                    context = deleteContext,
+                    message = deleteContext.getString(R.string.netease_delete_selected_failed)
+                )
+            }
+        }
+    }
     val lyricFontScaleTarget = lyricFontScales.lyricTargetFor(lyricFontScalePage)
     val translationFontScaleTarget = lyricFontScales.translationTargetFor(lyricFontScalePage)
     val currentLyricFontScale = lyricFontScales.scaleFor(lyricFontScaleTarget)
@@ -4292,6 +4345,10 @@ fun MoreOptionsSheet(
                         onAddToNeteasePlaylist = {
                             dismissSheet { onAddToNeteasePlaylist() }
                         },
+                        onDeleteFromNeteasePlaylist = currentTrackPlaylistOwnerCheck?.let {
+                            { onDeleteCurrentFromNeteasePlaylist(it.first) }
+                        },
+                        menuVisibility = menuVisibility,
                         onEnterAlbum = { album ->
                             dismissSheet {
                                 onEnterAlbum(album)
