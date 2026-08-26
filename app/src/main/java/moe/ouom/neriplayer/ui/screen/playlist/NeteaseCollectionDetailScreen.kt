@@ -350,6 +350,11 @@ fun DetailScreen(
     val scope = rememberCoroutineScope()
     var showSearch by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
+    // 歌单内临时排序（仅影响展示顺序；切歌单重置）
+    var sortMode by rememberSaveable(playlistId) {
+        mutableStateOf(PlaylistSortMode.DEFAULT)
+    }
+    var showSortSheet by remember { mutableStateOf(false) }
     var headerSearchFocused by remember { mutableStateOf(false) }
     var dockedSearchFocused by remember { mutableStateOf(false) }
     val searchInputState = rememberPlaylistSearchInputState(
@@ -756,7 +761,7 @@ fun DetailScreen(
                         query = searchQuery,
                         items = ui.tracks,
                         tokens = { song -> song.playlistSearchValues(context) }
-                    )
+                    ).applyPlaylistSort(sortMode)
                     val trackCount = ui.header?.trackCount ?: ui.tracks.size
                     val heroTitle = ui.header?.name ?: stringResource(R.string.playlist_title)
                     val heroSubtitle = if (ui.header?.isAlbum == true) {
@@ -857,7 +862,8 @@ fun DetailScreen(
                                             },
                                             onExportToLocalPlaylist = {
                                                 showExportAllSheet = true
-                                            }
+                                            },
+                                            onOpenSortSheet = { showSortSheet = true }
                                         )
                                 }
                             }
@@ -1231,6 +1237,15 @@ fun DetailScreen(
                                 )
                             )
                         }
+                    )
+                }
+
+                // 排序面板 //
+                if (showSortSheet) {
+                    PlaylistSortSheet(
+                        currentMode = sortMode,
+                        onSelectMode = { sortMode = it },
+                        onDismissRequest = { showSortSheet = false }
                     )
                 }
 

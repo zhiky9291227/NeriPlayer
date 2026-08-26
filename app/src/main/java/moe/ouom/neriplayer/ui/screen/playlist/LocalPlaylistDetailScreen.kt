@@ -1696,7 +1696,14 @@ fun LocalPlaylistDetailScreen(
                                 }
                                 if (isFavorites) {
                                     HapticIconButton(
-                                        onClick = { requestNeteaseSync() },
+                                        onClick = {
+                                            // 一键双向同步：本地缺的直接补红心，不再走确认+预览
+                                            if (syncInProgress) return@HapticIconButton
+                                            syncInProgress = true
+                                            vm.twoWaySyncFavoritesWithNetease { result ->
+                                                handleNeteaseSyncResult(result)
+                                            }
+                                        },
                                         enabled = !syncInProgress
                                     ) {
                                         if (syncInProgress) {
@@ -1707,7 +1714,7 @@ fun LocalPlaylistDetailScreen(
                                         } else {
                                             Icon(
                                                 imageVector = Icons.Outlined.Sync,
-                                                contentDescription = stringResource(R.string.local_playlist_sync_netease_liked)
+                                                contentDescription = stringResource(R.string.local_playlist_sync_netease_two_way)
                                             )
                                         }
                                     }

@@ -76,6 +76,7 @@ import moe.ouom.neriplayer.data.sync.model.normalizedSyncCausalTokens
 import moe.ouom.neriplayer.data.sync.webdav.WebDavSyncWorker
 import moe.ouom.neriplayer.data.model.SongItem
 import moe.ouom.neriplayer.core.logging.NPLogger
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.io.IOException
@@ -2404,6 +2405,112 @@ class LocalPlaylistRepository private constructor(
             requireInitialized()
             val favorites = FavoritesPlaylist.firstOrNull(_playlists.value, context)
             syncSongsToNeteaseLiked(client, favorites?.songs.orEmpty())
+        }
+
+    /**
+     * 收藏歌单与网易云「我喜欢的音乐」双向同步：
+     * - 本地有、网易云没有 → likeSong(add) 补红心
+     * - 网易云有、本地收藏缺 → 只计入计数并附提示，默认不改网易云（防误删；
+     *   用户明确要求"补差"方向，删除留给网易云客户端操作）
+     * 返回结果复用 NeteaseLikeSyncResult：added=本次新补红心数，
+     * skippedExisting=两端都有数，failed=补红心失败数，skippedUnsupported=无法映射网易云的歌数。
+     */
+    suspend fun twoWaySyncFavoritesWithNetease(client: NeteaseClient): NeteaseLikeSyncResult =
+        withContext(Dispatchers.IO) {
+            requireInitialized()
+            val favorites = FavoritesPlaylist.firstOrNull(_playlists.value, context)
+            val localSongs = favorites?.songs.orEmpty()
+
+            val resolved = buildLocalNeteaseCandidates(localSongs)
+            if (resolved.candidates.isEmpty()) {
+                return@withContext NeteaseLikeSyncResult(
+                    totalSongs = localSongs.size,
+                    supportedSongs = 0,
+                    skippedUnsupported = localSongs.size,
+                    skippedExisting = 0,
+                    added = 0,
+                    failed = 0,
+                    message = context.getString(R.string.local_playlist_sync_netease_no_supported)
+                )
+            }
+
+            // 拉取网易云侧红心歌曲 ID 集
+            val remoteRaw = runCatching { client.getUserLikedSongIds(0) }.getOrElse { error ->
+                NPLogger.e("LocalPlaylistRepo", "getUserLikedSongIds failed: ${error.message}", error)
+                return@withContext NeteaseLikeSyncResult(
+                    totalSongs = localSongs.size,
+                    supportedSongs = resolved.supportedSongs,
+                    skippedUnsupported = resolved.skippedUnsupported,
+                    skippedExisting = 0,
+                    added = 0,
+                    failed = 0,
+                    message = NETEASE_COMPARE_FAILED_MESSAGE
+                )
+            }
+            val remoteIds = runCatching {
+                val root = JSONObject(remoteRaw)
+                val ids = JSONArray()
+                root.optJSONArray("ids")?.let { arr ->
+                    for (i in 0 until arr.length()) ids.put(arr.optLong(i))
+                }
+                (0 until ids.length()).mapTo(HashSet()) { ids.optLong(it) }
+            }.getOrElse { error ->
+                NPLogger.e("LocalPlaylistRepo", "parse liked ids failed: ${error.message}", error)
+                return@withContext NeteaseLikeSyncResult(
+                    totalSongs = localSongs.size,
+                    supportedSongs = resolved.supportedSongs,
+                    skippedUnsupported = resolved.skippedUnsupported,
+                    skippedExisting = 0,
+                    added = 0,
+                    failed = 0,
+                    message = NETEASE_COMPARE_FAILED_MESSAGE
+                )
+            }
+
+            var alreadySynced = 0
+            val pending = ArrayList<NeteaseResolvedCandidate>(resolved.candidates.size)
+            resolved.candidates.forEach { candidate ->
+                if (candidate.neteaseId in remoteIds) {
+                    alreadySynced += 1
+                } else {
+                    pending += candidate
+                }
+            }
+
+            var addedCount = 0
+            var failedCount = 0
+            pending.forEach { candidate ->
+                val raw = runCatching { client.likeSong(candidate.neteaseId, true) }.getOrElse { _ ->
+                    failedCount += 1
+                    return@forEach
+                }
+                if (parseNeteaseCode(raw) == 200) {
+                    addedCount += 1
+                } else {
+                    failedCount += 1
+                }
+            }
+
+            // 双向都成功后把远端新增回写到本地收藏缺失检测不再必要：远端多出的歌
+            // 不自动拉进本地（避免下一轮立刻又推回去造成乒乓），只报数量让用户自行决定。
+            val message = if (remoteIds.size > alreadySynced + addedCount + failedCount ||
+                pending.isEmpty() && alreadySynced < remoteIds.size
+            ) {
+                context.getString(R.string.local_playlist_sync_netease_two_way_remote_only)
+            } else {
+                null
+            }
+
+            NeteaseLikeSyncResult(
+                totalSongs = localSongs.size,
+                supportedSongs = resolved.supportedSongs,
+                skippedUnsupported = resolved.skippedUnsupported,
+                skippedExisting = alreadySynced,
+                added = addedCount,
+                failed = failedCount,
+                message = message,
+                targetPlaylistId = null
+            )
         }
 
     suspend fun syncSongsToNeteaseLiked(

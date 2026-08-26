@@ -552,6 +552,13 @@ class LocalPlaylistDetailViewModel(application: Application) : AndroidViewModel(
         }
     }
 
+    fun twoWaySyncFavoritesWithNetease(onResult: (NeteaseLikeSyncResult) -> Unit) {
+        viewModelScope.launch {
+            val result = repo.twoWaySyncFavoritesWithNetease(AppContainer.neteaseClient)
+            onResult(result)
+        }
+    }
+
     fun syncSongsToNeteaseLiked(
         songs: List<SongItem>,
         onResult: (NeteaseLikeSyncResult) -> Unit
