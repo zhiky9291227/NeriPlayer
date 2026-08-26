@@ -2805,6 +2805,18 @@ fun NowPlayingScreen(
     CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurface) {
         SharedTransitionLayout {
             Box(modifier = Modifier.fillMaxSize()) {
+                // 暂停时封面微微缩小，播放时恢复，符合操作直觉。
+                // 坑：播放页封面是 COVER 共享元素，暂停缩放若挂在外层 Box 的
+                // graphicsLayer 上（sharedElement 外侧），转场矩形按未缩放布局边界计算——
+                // 切页瞬间封面从 94% 弹到 100%（突刺），返回落地后再缩回 94%（抖动）。
+                // 修法：缩放挂在共享元素内侧，转场首帧=暂停稳态；同时把该值传给
+                // 歌词页小封面乘同一系数，保证转场两端几何一致、全程无跳变。
+                // 声明在 AnimatedContent 之前，两个分支（歌词页/播放页）都要读它。
+                val coverPlayingScale by animateFloatAsState(
+                    targetValue = if (isPlaybackControlPlaying) 1f else 0.94f,
+                    animationSpec = tween(durationMillis = 260),
+                    label = "cover_playing_scale"
+                )
                 AnimatedContent(
                     targetState = showLyricsScreen,
                     transitionSpec = {
@@ -2831,6 +2843,7 @@ fun NowPlayingScreen(
                             lyricBlurEnabled = lyricBlurEnabled,
                             lyricBlurAmount = lyricBlurAmount,
                             lyricFontScales = lyricFontScales,
+                            coverPlayingScale = coverPlayingScale,
                             onEnterAlbum = onEnterAlbum,
                             onOpenCurrentArtist = openCurrentArtist,
                             onOpenCurrentPlaybackSource = onOpenCurrentPlaybackSource,
@@ -3166,12 +3179,6 @@ fun NowPlayingScreen(
                             // 大封面占主体：竖屏下尽量占满宽度
                             else -> minOf(maxWidth * 0.92f, maxHeight * 0.62f)
                         }
-                        // 暂停时封面微微缩小，播放时恢复，符合操作直觉
-                        val coverPlayingScale by animateFloatAsState(
-                            targetValue = if (isPlaybackControlPlaying) 1f else 0.94f,
-                            animationSpec = tween(durationMillis = 260),
-                            label = "cover_playing_scale"
-                        )
                         val coverRequestSizePx = with(LocalDensity.current) {
                             coverSize.roundToPx().coerceAtLeast(256)
                         }
@@ -3179,10 +3186,6 @@ fun NowPlayingScreen(
                             modifier = Modifier
                                 .align(Alignment.Center)
                                 .size(coverSize)
-                                .graphicsLayer {
-                                    scaleX = coverPlayingScale
-                                    scaleY = coverPlayingScale
-                                }
                         ) {
                             Box(
                                 modifier = Modifier
@@ -3193,6 +3196,15 @@ fun NowPlayingScreen(
                                         ),
                                         animatedVisibilityScope = this@AnimatedContent
                                     )
+                                    // 必须挂在 sharedElement 内侧（链上位于其后）：
+                                    // 转场矩形取布局边界（全尺寸），该层让实际渲染始终带
+                                    // 94% 系数——切页首帧与暂停稳态完全一致，返回落地时
+                                    // 也不需要再补一次缩放动画；若挂在外层 Box 上则转场
+                                    // 起点按未缩放矩形计算，会出现 94%→100% 的突刺。
+                                    .graphicsLayer {
+                                        scaleX = coverPlayingScale
+                                        scaleY = coverPlayingScale
+                                    }
                                     .clip(RoundedCornerShape(24.dp))
                                     .background(
                                         color = if (currentCoverUrl != null) {

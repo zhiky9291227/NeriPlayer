@@ -188,6 +188,10 @@ fun LyricsScreen(
     lyricOffsetMs: Long,
     showLyricTranslation: Boolean = true,
     lyricTranslationUsePhonetic: Boolean = false,
+    // 播放页封面的暂停缩小系数（播放=1f / 暂停≈0.94f）。歌词页顶部的小封面也挂了
+    // COVER 共享元素，必须乘同一系数，否则页面切换的转场两端尺寸对不上，
+    // 暂停状态下切页会出现明显的弹跳/跳变。
+    coverPlayingScale: Float = 1f,
     sharedTransitionScope: androidx.compose.animation.SharedTransitionScope? = null,
     animatedContentScope: androidx.compose.animation.AnimatedContentScope? = null,
     offlineMode: Boolean = false,
@@ -397,9 +401,12 @@ fun LyricsScreen(
             Spacer(modifier = Modifier.width(8.dp))
 
             // 封面 - 紧邻返回键, 缩小时约48dp
+            // 乘上 coverPlayingScale：暂停时小封面同样缩到 94%，与播放页大封面的
+            // 渲染系数一致——COVER 共享元素转场取布局边界，两端尺寸一致才不会
+            // 在切页瞬间出现弹跳/跳变（见参数注释）。
             Box(
                 modifier = Modifier
-                    .size((64 * coverScale).dp)
+                    .size(((64 * coverScale) * coverPlayingScale).dp)
                     .then(
                         if (sharedTransitionScope != null && animatedContentScope != null) {
                             with(sharedTransitionScope) {
