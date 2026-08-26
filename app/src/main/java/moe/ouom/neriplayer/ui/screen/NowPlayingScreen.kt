@@ -191,6 +191,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import coil.imageLoader
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -2812,9 +2813,15 @@ fun NowPlayingScreen(
                 // 修法：缩放挂在共享元素内侧，转场首帧=暂停稳态；同时把该值传给
                 // 歌词页小封面乘同一系数，保证转场两端几何一致、全程无跳变。
                 // 声明在 AnimatedContent 之前，两个分支（歌词页/播放页）都要读它。
+                // 性能二轮优化：tween(260) 换 spring——减速段更自然，且与 AnimatedContent
+                // 的 fade 节奏不打架；读取端全部走 graphicsLayer lambda（见下），动画
+                // 每帧只重绘封面图层，不再触发任何页面重组/重排。
                 val coverPlayingScale by animateFloatAsState(
                     targetValue = if (isPlaybackControlPlaying) 1f else 0.94f,
-                    animationSpec = tween(durationMillis = 260),
+                    animationSpec = spring(
+                        dampingRatio = 0.9f,
+                        stiffness = Spring.StiffnessMediumLow
+                    ),
                     label = "cover_playing_scale"
                 )
                 AnimatedContent(
@@ -2843,7 +2850,9 @@ fun NowPlayingScreen(
                             lyricBlurEnabled = lyricBlurEnabled,
                             lyricBlurAmount = lyricBlurAmount,
                             lyricFontScales = lyricFontScales,
-                            coverPlayingScale = coverPlayingScale,
+                            // 不再作为参数下传：传 Float 参数会让 LyricsScreen 每帧
+                            // 整页重组；歌词页小封面自行用同一动画值挂 graphicsLayer。
+                            isPlayingForCoverScale = isPlaybackControlPlaying,
                             onEnterAlbum = onEnterAlbum,
                             onOpenCurrentArtist = openCurrentArtist,
                             onOpenCurrentPlaybackSource = onOpenCurrentPlaybackSource,

@@ -31,6 +31,7 @@ import android.os.PowerManager
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.fadeIn
@@ -188,10 +189,11 @@ fun LyricsScreen(
     lyricOffsetMs: Long,
     showLyricTranslation: Boolean = true,
     lyricTranslationUsePhonetic: Boolean = false,
-    // 播放页封面的暂停缩小系数（播放=1f / 暂停≈0.94f）。歌词页顶部的小封面也挂了
-    // COVER 共享元素，必须乘同一系数，否则页面切换的转场两端尺寸对不上，
-    // 暂停状态下切页会出现明显的弹跳/跳变。
-    coverPlayingScale: Float = 1f,
+    // 播放/暂停状态（播放页封面的暂停缩小动画在 NowPlayingScreen 侧跑）。歌词页顶部
+    // 小封面需要乘同一系数保证 COVER 共享元素转场两端几何一致。这里只收 Boolean，
+    // 动画值由本页面自己 animateFloatAsState 派生并挂在 graphicsLayer lambda 里读取——
+    // 若直接下传 Float 参数，暂停动画每帧都会让整个 LyricsScreen 重组+重排（卡顿来源）。
+    isPlayingForCoverScale: Boolean = true,
     sharedTransitionScope: androidx.compose.animation.SharedTransitionScope? = null,
     animatedContentScope: androidx.compose.animation.AnimatedContentScope? = null,
     offlineMode: Boolean = false,
@@ -401,12 +403,20 @@ fun LyricsScreen(
             Spacer(modifier = Modifier.width(8.dp))
 
             // 封面 - 紧邻返回键, 缩小时约48dp
-            // 乘上 coverPlayingScale：暂停时小封面同样缩到 94%，与播放页大封面的
-            // 渲染系数一致——COVER 共享元素转场取布局边界，两端尺寸一致才不会
-            // 在切页瞬间出现弹跳/跳变（见参数注释）。
+            // 暂停系数走本地的 lambda graphicsLayer：与播放页大封面同规格 spring、
+            // 同 0.94 稳态——转场两端几何一致；且每帧只重绘这一层，不触发布局变化
+            // （.size() 里乘动画值会逐帧改共享元素的布局边界，是转场打架的根源之一）。
+            val lyricsCoverPlayingScale by animateFloatAsState(
+                targetValue = if (isPlayingForCoverScale) 1f else 0.94f,
+                animationSpec = spring(
+                    dampingRatio = 0.9f,
+                    stiffness = Spring.StiffnessMediumLow
+                ),
+                label = "lyrics_cover_playing_scale"
+            )
             Box(
                 modifier = Modifier
-                    .size(((64 * coverScale) * coverPlayingScale).dp)
+                    .size((64 * coverScale).dp)
                     .then(
                         if (sharedTransitionScope != null && animatedContentScope != null) {
                             with(sharedTransitionScope) {
@@ -420,6 +430,10 @@ fun LyricsScreen(
                         } else Modifier
                     )
                     .graphicsLayer { translationY = coverOffsetY }
+                    .graphicsLayer {
+                        scaleX = lyricsCoverPlayingScale
+                        scaleY = lyricsCoverPlayingScale
+                    }
                     .clip(RoundedCornerShape(10.dp))
             ) {
                 currentCoverUrl?.let { cover ->
