@@ -170,12 +170,10 @@ class PlaybackEffectsController {
         } else {
             List(centersHz.size) { 0 }
         }
-        val equalizerHeadroomMb = resolvedLevels.maxOrNull()?.coerceAtLeast(0) ?: 0
-        val appliedLevels = if (config.equalizerEnabled && equalizerHeadroomMb > 0) {
-            resolvedLevels.map { it - equalizerHeadroomMb }
-        } else {
-            resolvedLevels
-        }
+        // 直接套用用户/预设的各频段电平。不要做"整体下移最大增益"的 headroom 归一化：
+        // 那会把未提升的中高频段一起压到衰减下限（如低频 +1500mB 时其余全部 -1500mB），
+        // 表现为"调高低音后音乐几乎没声音"。增益导致的削波交给系统输出链处理。
+        val appliedLevels = resolvedLevels
 
         if (
             lastAppliedEqualizerEnabled == config.equalizerEnabled &&
@@ -215,7 +213,7 @@ class PlaybackEffectsController {
 
         NPLogger.d(
             TAG,
-            "applyEqualizer(): applied preset=${config.presetId}, rawMin=${resolvedLevels.minOrNull()}, rawMax=${resolvedLevels.maxOrNull()}, headroomMb=$equalizerHeadroomMb, appliedMin=${appliedLevels.minOrNull()}, appliedMax=${appliedLevels.maxOrNull()}, loudnessGainMb=${config.loudnessGainMb}"
+            "applyEqualizer(): applied preset=${config.presetId}, rawMin=${resolvedLevels.minOrNull()}, rawMax=${resolvedLevels.maxOrNull()}, appliedMin=${appliedLevels.minOrNull()}, appliedMax=${appliedLevels.maxOrNull()}, loudnessGainMb=${config.loudnessGainMb}"
         )
     }
 

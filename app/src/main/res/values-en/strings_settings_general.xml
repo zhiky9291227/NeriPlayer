@@ -64,6 +64,9 @@
     <string name="settings_personalization_start_section_desc">Set the default entry and keyboard behavior.</string>
     <string name="settings_personalization_home_section">Home Sections</string>
     <string name="settings_personalization_home_section_desc">Choose which recommendation areas appear on Home.</string>
+    <string name="settings_home_sections_order">Home Section Order</string>
+    <string name="settings_home_sections_order_desc">Reorder daily picks, personal FM, toplist and other home sections</string>
+    <string name="settings_home_sections_order_reset">Reset to default order</string>
     <string name="settings_personalization_playback_info_section">Now Playing Info</string>
     <string name="settings_personalization_playback_info_section_desc">Control title, source, cover lyrics, and progress info.</string>
     <string name="settings_personalization_playback_controls_section">Now Playing Controls</string>

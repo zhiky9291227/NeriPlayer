@@ -435,6 +435,18 @@ object AutoSettingsSchema {
         )
 
         @AutoSetting(
+            key = "home_sections_order",
+            type = SettingValueType.String,
+            defaultString = "PERSONAL_RADAR,DAILY_RECOMMEND,PRIVATE_FM,TOP_SOARING,PERSONALIZED_NEW_SONGS,TOP_HOT,TOP_NEW",
+            order = 15,
+            ui = SettingUiType.Custom
+        )
+        val homeSectionsOrder = autoSetting(
+            titleRes = R.string.settings_home_sections_order,
+            descriptionRes = R.string.settings_home_sections_order_desc
+        )
+
+        @AutoSetting(
             key = "auto_show_keyboard",
             type = SettingValueType.Boolean,
             defaultBoolean = false,

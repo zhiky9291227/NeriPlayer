@@ -141,6 +141,10 @@ import moe.ouom.neriplayer.data.playlist.usage.UsageEntry
 import moe.ouom.neriplayer.data.playlist.usage.buildLocalPlaylistUsageLookup
 import moe.ouom.neriplayer.data.platform.youtube.buildYouTubeMusicMediaUri
 import moe.ouom.neriplayer.data.local.media.displayAlbum
+import moe.ouom.neriplayer.data.settings.generated.AutoSettingsRepository
+import moe.ouom.neriplayer.data.settings.orderNeteaseHomeSections
+import moe.ouom.neriplayer.data.settings.parseNeteaseHomeSectionOrder
+import moe.ouom.neriplayer.data.settings.toHomeSectionId
 import moe.ouom.neriplayer.ui.util.shouldAllowCollapsingTopAppBar
 import moe.ouom.neriplayer.data.model.displayArtist
 import moe.ouom.neriplayer.data.model.displayName
@@ -370,6 +374,20 @@ fun HomeScreen(
         hasUsage = usageEntries.isNotEmpty()
     )
     val isInternational = ui.internationalizationEnabled
+    // 首页板块自定义顺序：DataStore 里存的是完整顺序表，缺失/非法项自动回退默认
+    val autoSettingsRepo = remember { AutoSettingsRepository(context.applicationContext) }
+    val homeSectionsOrderRaw by autoSettingsRepo.homeSectionsOrderFlow
+        .collectAsStateWithLifecycle(initialValue = null)
+    val orderedNeteaseSongSections = remember(
+        homeSectionsOrderRaw,
+        ui.radarSongSections,
+        ui.trendingSongSections
+    ) {
+        orderNeteaseHomeSections(
+            radarSongSections = ui.radarSongSections,
+            trendingSongSections = ui.trendingSongSections
+        ) { it.source.toHomeSectionId() }
+    }
     val showNeteaseTrending = showTrendingCard
     val showNeteaseRadar = showRadarCard
     val showOnlineFeeds = !offlineMode
@@ -732,39 +750,97 @@ fun HomeScreen(
                                 }
                             }
                         } else {
-                            if (showNeteaseRadar) {
-                                ui.radarSongSections
-                                    .filter { it.source == NeteaseHomeSongSource.PERSONAL_RADAR }
-                                    .forEach { sectionState ->
-                                    val sectionKey = homeNeteaseSongSectionKey(
-                                        group = "radar",
-                                        source = sectionState.source
-                                    )
-                                    addNeteaseSongSection(
-                                        sectionKey = sectionKey,
-                                        registerKey = ::registerGridItemKey,
-                                        sectionState = sectionState,
-                                        icon = neteaseSongSectionIcon(sectionState.source),
-                                        loadingText = homeLoadingText,
-                                        onSongClick = onSongClick,
-                                        favoriteSongs = favoriteSongs,
-                                        onFavoriteToggle = ::toggleHomeSongFavorite,
-                                        onShowSnackbar = showHomeSnackbar,
-                                        offlineMode = offlineMode,
-                                        onOpenFullPlaylist = {
-                                            onItemClick(
-                                                PlaylistSummary(
-                                                    id = NETEASE_PRIVATE_RADAR_PLAYLIST_ID,
-                                                    name = radarSongsTitleText,
-                                                    picUrl = "",
-                                                    playCount = 0L,
-                                                    trackCount = 0
+                            // 按用户自定义顺序渲染全部歌曲板块（私人雷达/每日推荐/私人FM/各榜单）
+                            orderedNeteaseSongSections.forEach { sectionState ->
+                                val isRadarGroup = sectionState.source == NeteaseHomeSongSource.PERSONAL_RADAR
+                                val sectionKey = homeNeteaseSongSectionKey(
+                                    group = if (isRadarGroup) "radar" else "trending",
+                                    source = sectionState.source
+                                )
+                                addNeteaseSongSection(
+                                    sectionKey = sectionKey,
+                                    registerKey = ::registerGridItemKey,
+                                    sectionState = sectionState,
+                                    icon = neteaseSongSectionIcon(sectionState.source),
+                                    loadingText = homeLoadingText,
+                                    onSongClick = onSongClick,
+                                    favoriteSongs = favoriteSongs,
+                                    onFavoriteToggle = ::toggleHomeSongFavorite,
+                                    onShowSnackbar = showHomeSnackbar,
+                                    offlineMode = offlineMode,
+                                    onOpenFullPlaylist = when (sectionState.source) {
+                                        NeteaseHomeSongSource.PERSONAL_RADAR -> {
+                                            {
+                                                onItemClick(
+                                                    PlaylistSummary(
+                                                        id = NETEASE_PRIVATE_RADAR_PLAYLIST_ID,
+                                                        name = radarSongsTitleText,
+                                                        picUrl = "",
+                                                        playCount = 0L,
+                                                        trackCount = 0
+                                                    )
                                                 )
-                                            )
+                                            }
                                         }
-                                    )
-                                }
+                                        NeteaseHomeSongSource.DAILY_RECOMMEND -> {
+                                            {
+                                                onItemClick(
+                                                    PlaylistSummary(
+                                                        id = NETEASE_DAILY_RECOMMEND_PLAYLIST_VIEW_ID,
+                                                        name = dailySongsTitleText,
+                                                        picUrl = "",
+                                                        playCount = 0L,
+                                                        trackCount = 0
+                                                    )
+                                                )
+                                            }
+                                        }
+                                        NeteaseHomeSongSource.TOP_SOARING -> {
+                                            {
+                                                onItemClick(
+                                                    PlaylistSummary(
+                                                        id = NETEASE_TOPLIST_SOARING_ID,
+                                                        name = topSoaringTitleText,
+                                                        picUrl = "",
+                                                        playCount = 0L,
+                                                        trackCount = 0
+                                                    )
+                                                )
+                                            }
+                                        }
+                                        NeteaseHomeSongSource.TOP_HOT -> {
+                                            {
+                                                onItemClick(
+                                                    PlaylistSummary(
+                                                        id = NETEASE_TOPLIST_HOT_ID,
+                                                        name = topHotTitleText,
+                                                        picUrl = "",
+                                                        playCount = 0L,
+                                                        trackCount = 0
+                                                    )
+                                                )
+                                            }
+                                        }
+                                        NeteaseHomeSongSource.TOP_NEW -> {
+                                            {
+                                                onItemClick(
+                                                    PlaylistSummary(
+                                                        id = NETEASE_TOPLIST_NEW_ID,
+                                                        name = topNewTitleText,
+                                                        picUrl = "",
+                                                        playCount = 0L,
+                                                        trackCount = 0
+                                                    )
+                                                )
+                                            }
+                                        }
+                                        else -> null
+                                    },
+                                    headerCoverUrl = sectionState.section.items.firstOrNull()?.coverUrl
+                                )
+                            }
 
+                            if (showNeteaseRadar) {
                                 val radarPlaylistState = ui.radarPlaylists
                                 item(
                                     key = registerGridItemKey(
@@ -801,106 +877,6 @@ fun HomeScreen(
                                             offlineMode = offlineMode
                                         )
                                     }
-                                }
-
-                                ui.radarSongSections
-                                    .filter { it.source != NeteaseHomeSongSource.PERSONAL_RADAR }
-                                    .forEach { sectionState ->
-                                        val sectionKey = homeNeteaseSongSectionKey(
-                                            group = "radar",
-                                            source = sectionState.source
-                                        )
-                                        addNeteaseSongSection(
-                                            sectionKey = sectionKey,
-                                            registerKey = ::registerGridItemKey,
-                                            sectionState = sectionState,
-                                            icon = neteaseSongSectionIcon(sectionState.source),
-                                            loadingText = homeLoadingText,
-                                            onSongClick = onSongClick,
-                                            favoriteSongs = favoriteSongs,
-                                            onFavoriteToggle = ::toggleHomeSongFavorite,
-                                            onShowSnackbar = showHomeSnackbar,
-                                            offlineMode = offlineMode,
-                                            onOpenFullPlaylist = when (sectionState.source) {
-                                                NeteaseHomeSongSource.DAILY_RECOMMEND -> {
-                                                    {
-                                                        onItemClick(
-                                                            PlaylistSummary(
-                                                                id = NETEASE_DAILY_RECOMMEND_PLAYLIST_VIEW_ID,
-                                                                name = dailySongsTitleText,
-                                                                picUrl = "",
-                                                                playCount = 0L,
-                                                                trackCount = 0
-                                                            )
-                                                        )
-                                                    }
-                                                }
-                                                else -> null
-                                            }
-                                        )
-                                    }
-                            }
-
-                            if (showNeteaseTrending) {
-                                ui.trendingSongSections.forEach { sectionState ->
-                                    val sectionKey = homeNeteaseSongSectionKey(
-                                        group = "trending",
-                                        source = sectionState.source
-                                    )
-                                    addNeteaseSongSection(
-                                        sectionKey = sectionKey,
-                                        registerKey = ::registerGridItemKey,
-                                        sectionState = sectionState,
-                                        icon = neteaseSongSectionIcon(sectionState.source),
-                                        loadingText = homeLoadingText,
-                                        onSongClick = onSongClick,
-                                        favoriteSongs = favoriteSongs,
-                                        onFavoriteToggle = ::toggleHomeSongFavorite,
-                                        onShowSnackbar = showHomeSnackbar,
-                                        offlineMode = offlineMode,
-                                        onOpenFullPlaylist = when (sectionState.source) {
-                                            NeteaseHomeSongSource.TOP_SOARING -> {
-                                                {
-                                                    onItemClick(
-                                                        PlaylistSummary(
-                                                            id = NETEASE_TOPLIST_SOARING_ID,
-                                                            name = topSoaringTitleText,
-                                                            picUrl = "",
-                                                            playCount = 0L,
-                                                            trackCount = 0
-                                                        )
-                                                    )
-                                                }
-                                            }
-                                            NeteaseHomeSongSource.TOP_HOT -> {
-                                                {
-                                                    onItemClick(
-                                                        PlaylistSummary(
-                                                            id = NETEASE_TOPLIST_HOT_ID,
-                                                            name = topHotTitleText,
-                                                            picUrl = "",
-                                                            playCount = 0L,
-                                                            trackCount = 0
-                                                        )
-                                                    )
-                                                }
-                                            }
-                                            NeteaseHomeSongSource.TOP_NEW -> {
-                                                {
-                                                    onItemClick(
-                                                        PlaylistSummary(
-                                                            id = NETEASE_TOPLIST_NEW_ID,
-                                                            name = topNewTitleText,
-                                                            picUrl = "",
-                                                            playCount = 0L,
-                                                            trackCount = 0
-                                                        )
-                                                    )
-                                                }
-                                            }
-                                            else -> null
-                                        }
-                                    )
                                 }
                             }
 
@@ -979,7 +955,8 @@ private fun LazyGridScope.addNeteaseSongSection(
     onFavoriteToggle: (SongItem, Boolean) -> Unit,
     onShowSnackbar: (String) -> Unit,
     offlineMode: Boolean,
-    onOpenFullPlaylist: (() -> Unit)? = null
+    onOpenFullPlaylist: (() -> Unit)? = null,
+    headerCoverUrl: String? = null
 ) {
     item(
         key = registerKey("$sectionKey:header"),
@@ -988,7 +965,8 @@ private fun LazyGridScope.addNeteaseSongSection(
         SectionHeader(
             icon = icon,
             title = stringResource(sectionState.source.titleRes),
-            onClick = onOpenFullPlaylist
+            onClick = onOpenFullPlaylist,
+            coverUrl = headerCoverUrl
         )
     }
     sectionContent(
@@ -1086,7 +1064,8 @@ private fun neteaseSongSectionIcon(source: NeteaseHomeSongSource): ImageVector {
 private fun SectionHeader(
     icon: ImageVector,
     title: String,
-    onClick: (() -> Unit)? = null
+    onClick: (() -> Unit)? = null,
+    coverUrl: String? = null
 ) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -1100,12 +1079,31 @@ private fun SectionHeader(
                 }
             )
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(22.dp)
-        )
+        if (!coverUrl.isNullOrBlank()) {
+            // 动态封面：取板块当日列表第一首歌的专辑封面，加载失败/无图时回退到图标
+            val context = LocalContext.current
+            AsyncImage(
+                model = fastScrollableImageRequest(
+                    context = context,
+                    data = coverUrl,
+                    sizePx = 96,
+                    offlineMode = false
+                ),
+                error = null,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .size(22.dp)
+                    .clip(RoundedCornerShape(6.dp))
+            )
+        } else {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(22.dp)
+            )
+        }
         Text(
             text = title,
             style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.ExtraBold),

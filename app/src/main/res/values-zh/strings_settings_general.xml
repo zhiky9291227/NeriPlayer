@@ -64,6 +64,9 @@
     <string name="settings_personalization_start_section_desc">设置默认入口和键盘弹出</string>
     <string name="settings_personalization_home_section">首页栏目</string>
     <string name="settings_personalization_home_section_desc">控制首页显示哪些推荐区域</string>
+    <string name="settings_home_sections_order">首页板块排序</string>
+    <string name="settings_home_sections_order_desc">自定义每日推荐、私人FM、榜单等板块的显示顺序</string>
+    <string name="settings_home_sections_order_reset">恢复默认排序</string>
     <string name="settings_personalization_playback_info_section">播放页信息</string>
     <string name="settings_personalization_playback_info_section_desc">控制标题、来源、封面歌词和进度条信息</string>
     <string name="settings_personalization_playback_controls_section">播放页控制</string>

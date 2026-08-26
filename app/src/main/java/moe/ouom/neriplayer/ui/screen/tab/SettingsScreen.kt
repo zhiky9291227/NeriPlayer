@@ -63,12 +63,15 @@ import androidx.compose.material.icons.outlined.Explore
 import androidx.compose.material.icons.outlined.FormatSize
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.LibraryMusic
 import androidx.compose.material.icons.outlined.Link
+import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.MeetingRoom
 import androidx.compose.material.icons.outlined.Radar
 import androidx.compose.material.icons.outlined.RestartAlt
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.Sort
 import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material.icons.outlined.TextFields
 import androidx.compose.material.icons.outlined.Wallpaper
@@ -78,6 +81,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
@@ -113,6 +117,7 @@ import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -143,6 +148,10 @@ import moe.ouom.neriplayer.data.settings.UsbExclusivePreferences
 import moe.ouom.neriplayer.data.settings.MAX_LYRIC_FONT_SCALE
 import moe.ouom.neriplayer.data.settings.MIN_LYRIC_FONT_SCALE
 import moe.ouom.neriplayer.data.settings.background.BackgroundImageStorage
+import moe.ouom.neriplayer.data.settings.DefaultNeteaseHomeSections
+import moe.ouom.neriplayer.data.settings.NeteaseHomeSectionId
+import moe.ouom.neriplayer.data.settings.encodeNeteaseHomeSectionOrder
+import moe.ouom.neriplayer.data.settings.parseNeteaseHomeSectionOrder
 import moe.ouom.neriplayer.data.settings.generated.AutoSettingsKeys
 import moe.ouom.neriplayer.data.settings.generated.AutoSettingsListItem
 import moe.ouom.neriplayer.data.settings.generated.AutoSettingsMetadata
@@ -665,6 +674,7 @@ fun SettingsScreen(
     var showMobileDataYouTubeQualityDialog by remember { mutableStateOf(false) }
     var showMobileDataBiliQualityDialog by remember { mutableStateOf(false) }
     var showDefaultStartDestinationDialog by remember { mutableStateOf(false) }
+    var showHomeSectionsOrderDialog by remember { mutableStateOf(false) }
     var showConfirmDialog by remember { mutableStateOf(false) }
     var showNeteaseSavedCookieDialog by remember { mutableStateOf(false) }
     var showBiliSheet by remember { mutableStateOf(false) }
@@ -1550,6 +1560,7 @@ fun SettingsScreen(
                                 scope = scope,
                                 defaultStartDestinationLabel = defaultStartDestinationLabel,
                                 onOpenDefaultStartDestination = { showDefaultStartDestinationDialog = true },
+                                onOpenHomeSectionsOrder = { showHomeSectionsOrderDialog = true },
                                 internationalEnabled = internationalEnabled,
                                 homeTrendingLabelRes = homeTrendingLabelRes,
                                 homeRadarLabelRes = homeRadarLabelRes,
@@ -2319,6 +2330,13 @@ fun SettingsScreen(
         LoginSuccessDialog(
             title = title,
             onDismiss = { loginSuccessTitle = null }
+        )
+    }
+    if (showHomeSectionsOrderDialog) {
+        HomeSectionsOrderDialog(
+            autoSettingsRepository = autoSettingsRepository,
+            scope = scope,
+            onDismiss = { showHomeSectionsOrderDialog = false }
         )
     }
     SettingsPreferenceDialogs(
@@ -3177,6 +3195,101 @@ private fun ThemeColorSpecSelector(
 }
 
 /**
+ * 首页板块排序：上移/下移调整各歌曲板块顺序，实时持久化到 DataStore，
+ * 首页按保存的顺序渲染。恢复默认按钮还原出厂顺序。
+ */
+@Composable
+private fun HomeSectionsOrderDialog(
+    autoSettingsRepository: AutoSettingsRepository,
+    scope: kotlinx.coroutines.CoroutineScope,
+    onDismiss: () -> Unit
+) {
+    val savedOrderRaw by autoSettingsRepository.homeSectionsOrderFlow.collectAsState(initial = null)
+    var sections by remember(savedOrderRaw) {
+        mutableStateOf(parseNeteaseHomeSectionOrder(savedOrderRaw))
+    }
+    fun persist(next: List<NeteaseHomeSectionId>) {
+        sections = next
+        scope.launch {
+            autoSettingsRepository.setHomeSectionsOrder(encodeNeteaseHomeSectionOrder(next))
+        }
+    }
+    fun move(item: NeteaseHomeSectionId, delta: Int) {
+        val currentIndex = sections.indexOf(item)
+        val targetIndex = (currentIndex + delta).coerceIn(0, sections.lastIndex)
+        if (targetIndex == currentIndex) return
+        persist(sections.toMutableList().apply {
+            removeAt(currentIndex)
+            add(targetIndex, item)
+        })
+    }
+
+    MiuixSettingsDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            MiuixSettingsTextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.action_done))
+            }
+        },
+        dismissButton = {
+            MiuixSettingsTextButton(
+                onClick = { persist(DefaultNeteaseHomeSections) }
+            ) {
+                Text(stringResource(R.string.settings_home_sections_order_reset))
+            }
+        },
+        title = { Text(stringResource(R.string.settings_home_sections_order)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                sections.forEachIndexed { index, section ->
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Sort,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Text(
+                            text = stringResource(section.songSource.titleRes),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(horizontal = 10.dp)
+                        )
+                        IconButton(
+                            enabled = index > 0,
+                            onClick = { move(section, -1) }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.KeyboardArrowUp,
+                                contentDescription = stringResource(R.string.action_move_up),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        IconButton(
+                            enabled = index < sections.lastIndex,
+                            onClick = { move(section, 1) }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.KeyboardArrowDown,
+                                contentDescription = stringResource(R.string.action_move_down),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    )
+}
+
+/**
  * 播放页菜单自定义：13 个开关逐项控制播放页「更多操作」菜单的显隐。
  * 关掉某项后该选项不再出现在播放页右上角三点菜单里。
  */
@@ -3288,6 +3401,7 @@ private fun SettingsPersonalizationPageContent(
     scope: kotlinx.coroutines.CoroutineScope,
     defaultStartDestinationLabel: String,
     onOpenDefaultStartDestination: () -> Unit,
+    onOpenHomeSectionsOrder: () -> Unit,
     internationalEnabled: Boolean,
     homeTrendingLabelRes: Int,
     homeRadarLabelRes: Int,
@@ -3443,6 +3557,22 @@ private fun SettingsPersonalizationPageContent(
                 highlightTargetId = highlightTargetId,
                 highlightPulse = highlightPulse,
                 onHighlightFinished = onHighlightFinished
+            )
+
+            AutoSettingsListItem(
+                setting = AutoSettingsMetadata.requireSetting(AutoSettingsKeys.HOME_SECTIONS_ORDER),
+                leadingContent = {
+                    Icon(
+                        imageVector = Icons.Outlined.Sort,
+                        contentDescription = stringResource(R.string.settings_home_sections_order),
+                        modifier = Modifier.size(24.dp),
+                        tint = MaterialTheme.colorScheme.onSurface
+                    )
+                },
+                highlightTargetId = highlightTargetId,
+                highlightPulse = highlightPulse,
+                onHighlightFinished = onHighlightFinished,
+                onClick = onOpenHomeSectionsOrder
             )
 
             LazyAnimatedVisibility(visible = !homeStartAvailable) {
