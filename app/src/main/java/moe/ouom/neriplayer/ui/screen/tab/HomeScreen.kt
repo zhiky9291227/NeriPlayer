@@ -72,6 +72,8 @@ import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Radar
 import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material.icons.outlined.Explore
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -146,6 +148,7 @@ import moe.ouom.neriplayer.data.settings.generated.AutoSettingsRepository
 import moe.ouom.neriplayer.data.settings.orderNeteaseHomeSections
 import moe.ouom.neriplayer.data.settings.parseNeteaseHomeSectionOrder
 import moe.ouom.neriplayer.data.settings.toHomeSectionId
+import moe.ouom.neriplayer.core.logging.NPLogger
 import moe.ouom.neriplayer.ui.util.shouldAllowCollapsingTopAppBar
 import moe.ouom.neriplayer.data.model.displayArtist
 import moe.ouom.neriplayer.data.model.displayName
@@ -187,6 +190,7 @@ private const val HomeContinueCardSpacingDp = 12f
 private const val HomeContinueCardMaxWidthDp = 140f
 private const val HomeContinueThreeSlotWidthDp = 300f
 private const val HomeContinueTabletWidthDp = 600f
+private const val HomeSectionSpacingDp = 24f
 private const val HomeScrollKeyContinueHeader = "home:continue:header"
 private const val HomeScrollKeyContinueContent = "home:continue:content"
 private const val HomeScrollKeyYtGuess = "home:ytmusic:guess"
@@ -934,7 +938,25 @@ private fun <T> LazyGridScope.sectionContent(
     content: LazyGridScope.() -> Unit
 ) {
     when {
-        section.items.isNotEmpty() -> content()
+        section.items.isNotEmpty() -> {
+            item(
+                key = registerKey("$keyPrefix:content"),
+                span = { GridItemSpan(maxLineSpan) }
+            ) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerHighest
+                    ),
+                    shape = RoundedCornerShape(12.dp),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                ) {
+                    Box(Modifier.padding(12.dp).fillMaxWidth()) {
+                        this@sectionContent.content()
+                    }
+                }
+            }
+        }
         section.loading -> {
             item(
                 key = registerKey("$keyPrefix:loading"),
@@ -1078,14 +1100,14 @@ private fun SectionHeader(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 10.dp)
+            .padding(start = 12.dp, end = 12.dp, top = HomeSectionSpacingDp.dp, bottom = 10.dp)
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .then(
                     if (onClick != null) {
-                        Modifier.clip(RoundedCornerShape(8.dp)).clickable(onClick = onClick)
+                        Modifier.clip(RoundedCornerShape(12.dp)).clickable(onClick = onClick)
                     } else {
                         Modifier
                     }
@@ -1114,8 +1136,8 @@ private fun SectionHeader(
             }
         }
         HorizontalDivider(
-            modifier = Modifier.padding(top = 8.dp),
-            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+            modifier = Modifier.padding(top = 8.dp, start = 12.dp, end = 12.dp),
+            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.12f)
         )
     }
 }
@@ -1447,7 +1469,7 @@ private fun RadarPlaylistCard(
 
     Column(
         modifier = modifier
-            .clip(RoundedCornerShape(8.dp))
+            .clip(RoundedCornerShape(12.dp))
             .combinedClickable(
                 onClick = onClick,
                 onLongClick = { showMenu = true }
@@ -1457,7 +1479,7 @@ private fun RadarPlaylistCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(1f)
-                .clip(RoundedCornerShape(8.dp))
+                .clip(RoundedCornerShape(12.dp))
                 .background(MaterialTheme.colorScheme.secondaryContainer),
             contentAlignment = Alignment.Center
         ) {
@@ -1545,6 +1567,14 @@ private fun RadarPlaylistCard(
                     scope.launch {
                         if (isFavorite) {
                             favoriteRepo.removeFavorite(playlist.id, "netease")
+                            // 收藏即同步：取消收藏网易云对应歌单（静默失败，不影响本地）
+                            try {
+                                withContext(Dispatchers.IO) {
+                                    AppContainer.neteaseClient.subscribePlaylist(playlist.id, false)
+                                }
+                            } catch (e: Exception) {
+                                NPLogger.w("NERI-HomeScreen", "网易云取消收藏歌单失败: ${e.message}")
+                            }
                             onShowSnackbar(unfavoritedText)
                         } else {
                             favoriteRepo.addFavorite(
@@ -1555,6 +1585,14 @@ private fun RadarPlaylistCard(
                                 source = "netease",
                                 songs = emptyList()
                             )
+                            // 收藏即同步：收藏网易云对应歌单（静默失败，不影响本地）
+                            try {
+                                withContext(Dispatchers.IO) {
+                                    AppContainer.neteaseClient.subscribePlaylist(playlist.id, true)
+                                }
+                            } catch (e: Exception) {
+                                NPLogger.w("NERI-HomeScreen", "网易云收藏歌单失败: ${e.message}")
+                            }
                             onShowSnackbar(favoriteSuccessText)
                         }
                     }
@@ -1583,7 +1621,7 @@ fun PlaylistCard(
 
     Column(
         modifier = Modifier
-            .clip(RoundedCornerShape(8.dp))
+            .clip(RoundedCornerShape(12.dp))
             .combinedClickable(
                 onClick = onClick,
                 onLongClick = { showMenu = true }
@@ -1601,7 +1639,7 @@ fun PlaylistCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(1f)
-                .clip(RoundedCornerShape(8.dp))
+                .clip(RoundedCornerShape(12.dp))
         )
         Column(modifier = Modifier.padding(top = 6.dp, start = 4.dp, end = 4.dp, bottom = 4.dp)) {
             Text(
@@ -1652,6 +1690,14 @@ fun PlaylistCard(
                     scope.launch {
                         if (isFavorite) {
                             favoriteRepo.removeFavorite(playlist.id, "netease")
+                            // 收藏即同步：取消收藏网易云对应歌单（静默失败，不影响本地）
+                            try {
+                                withContext(Dispatchers.IO) {
+                                    AppContainer.neteaseClient.subscribePlaylist(playlist.id, false)
+                                }
+                            } catch (e: Exception) {
+                                NPLogger.w("NERI-HomeScreen", "网易云取消收藏歌单失败: ${e.message}")
+                            }
                             onShowSnackbar(unfavoritedText)
                         } else {
                             favoriteRepo.addFavorite(
@@ -1662,6 +1708,14 @@ fun PlaylistCard(
                                 source = "netease",
                                 songs = emptyList()
                             )
+                            // 收藏即同步：收藏网易云对应歌单（静默失败，不影响本地）
+                            try {
+                                withContext(Dispatchers.IO) {
+                                    AppContainer.neteaseClient.subscribePlaylist(playlist.id, true)
+                                }
+                            } catch (e: Exception) {
+                                NPLogger.w("NERI-HomeScreen", "网易云收藏歌单失败: ${e.message}")
+                            }
                             onShowSnackbar(favoriteSuccessText)
                         }
                     }

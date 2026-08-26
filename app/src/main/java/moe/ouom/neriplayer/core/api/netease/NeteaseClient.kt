@@ -1046,6 +1046,21 @@ class NeteaseClient {
     }
 
     /**
+     * 收藏/取消收藏网易云歌单（收藏即同步用）
+     * @param playlistId 歌单 ID
+     * @param subscribe true=收藏, false=取消收藏
+     * @return 原始 JSON
+     */
+    @Throws(IOException::class)
+    fun subscribePlaylist(playlistId: Long, subscribe: Boolean = true): String {
+        val params = mutableMapOf<String, Any>(
+            "id" to playlistId.toString(),
+            "t" to (if (subscribe) "1" else "2")
+        )
+        return callWeApi("/playlist/subscribe", params, usePersistedCookies = true)
+    }
+
+    /**
      * 在当前登录账号下新建网易云歌单
      * @param name 歌单名
      * @param privacy true=隐私歌单（仅自己可见）
