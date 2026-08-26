@@ -2104,6 +2104,39 @@ fun NowPlayingScreen(
     val coverPreviewOnTapEnabled = shouldOpenNowPlayingCoverPreviewOnTap(currentSong)
     val coverPreviewOnLongPressEnabled =
         shouldOpenNowPlayingCoverPreviewOnLongPress(currentSong)
+    // 性能二轮优化：封面双尺寸预热。大封面与歌词页小封面此前都是首次组合时才解码——
+    // 切页转场/暂停缩放动画期间撞上解码就掉帧（"视觉上还是有点卡"的来源之一）。
+    // 在页面空闲时用 IO 调度器把两个尺寸提前塞进 Coil 内存缓存；请求参数
+    // （sizePx/allowHardware=false 等）与实际消费处完全一致，保证 cache key 命中。
+    // 预热失败静默忽略：AsyncImage 自己会再走一遍正常加载路径。
+    val coverWarmupKey = coverSongKey ?: currentCoverUrl ?: "none"
+    // 大封面解码尺寸在 BoxWithConstraints 内测量得出，经 .also 提升到顶层：
+    // 预热请求与实际消费请求 sizePx 完全一致，Coil 内存缓存 key 才能精确命中。
+    var warmedCoverRequestSizePx by remember { mutableStateOf<Int?>(null) }
+    LaunchedEffect(coverWarmupKey, offlineMode, warmedCoverRequestSizePx) {
+        val url = currentCoverUrl?.trim()?.takeIf { it.isNotEmpty() } ?: return@LaunchedEffect
+        withContext(Dispatchers.IO) {
+            val loader = context.imageLoader
+            val warmupSizes = listOf(
+                192, // 歌词页顶部小封面（LyricsScreen 固定 192px 请求）
+                warmedCoverRequestSizePx ?: return@withContext // 播放页大封面（测量后尺寸）
+            )
+            for (sizePx in warmupSizes) {
+                runCatching {
+                    val request = offlineCachedImageRequest(
+                        context = context,
+                        data = url,
+                        sizePx = sizePx,
+                        allowHardware = false,
+                        crossfade = false,
+                        offlineMode = offlineMode
+                    )
+                    loader.execute(request)
+                }
+            }
+        }
+    }
+
 
     // 点击即切换, 回流后撤销覆盖
     var favOverride by remember(currentSong) { mutableStateOf<Boolean?>(null) }
@@ -3190,7 +3223,7 @@ fun NowPlayingScreen(
                         }
                         val coverRequestSizePx = with(LocalDensity.current) {
                             coverSize.roundToPx().coerceAtLeast(256)
-                        }
+                        }.also { warmedCoverRequestSizePx = it }
                         Box(
                             modifier = Modifier
                                 .align(Alignment.Center)
