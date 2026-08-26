@@ -26,6 +26,13 @@
     <string name="playlist_exporting">正在导出歌单…</string>
     <string name="playlist_importing">正在导入歌单…</string>
     <string name="playlist_import_complete">导入完成！</string>
+    <string name="playlist_sort_title">排序方式</string>
+    <string name="playlist_sort_default">默认（自定义顺序）</string>
+    <string name="playlist_sort_oldest_first">按添加时间从旧到新</string>
+    <string name="playlist_sort_newest_first">按添加时间从新到旧</string>
+    <string name="playlist_sort_by_name">按歌曲名</string>
+    <string name="playlist_sort_by_album">按专辑名</string>
+    <string name="playlist_sort_by_artist">按歌手名</string>
     <string name="playlist_export_to_local">导出到本地歌单</string>
     <string name="playlist_play_in_order">顺序播放</string>
     <string name="playlist_playback_mode">播放模式</string>

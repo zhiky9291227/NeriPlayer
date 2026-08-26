@@ -554,6 +554,11 @@ fun LocalPlaylistDetailScreen(
 
             var showSearch by remember { mutableStateOf(false) }
             var searchQuery by remember { mutableStateOf("") }
+            // 歌单内临时排序（仅影响展示顺序，不改存储；切歌单时重置为默认）
+            var sortMode by rememberSaveable(playlistId) {
+                mutableStateOf(PlaylistSortMode.DEFAULT)
+            }
+            var showSortSheet by remember { mutableStateOf(false) }
             var headerSearchFocused by remember { mutableStateOf(false) }
             var dockedSearchFocused by remember { mutableStateOf(false) }
             val searchInputState = rememberPlaylistSearchInputState(
@@ -1168,7 +1173,7 @@ fun LocalPlaylistDetailScreen(
                     searchVisible = showSearch,
                     query = searchQuery
                 )
-            )
+            ).applyPlaylistSort(sortMode)
 
             LaunchedEffect(listState) {
                 snapshotFlow {
@@ -1996,7 +2001,8 @@ fun LocalPlaylistDetailScreen(
                                                 },
                                                 onExportToLocalPlaylist = {
                                                     showExportAllSheet = true
-                                                }
+                                                },
+                                                onOpenSortSheet = { showSortSheet = true }
                                             )
                                         }
                                     }
@@ -2553,6 +2559,14 @@ fun LocalPlaylistDetailScreen(
                                 exitSelectionMode()
                             }
                         }
+                    )
+                }
+
+                if (showSortSheet) {
+                    PlaylistSortSheet(
+                        currentMode = sortMode,
+                        onSelectMode = { sortMode = it },
+                        onDismissRequest = { showSortSheet = false }
                     )
                 }
 

@@ -22,11 +22,17 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.PlaylistAdd
+import androidx.compose.material.icons.automirrored.outlined.Sort
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.RadioButtonChecked
 import androidx.compose.material.icons.filled.RepeatOne
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.outlined.RadioButtonUnchecked
 import androidx.compose.material.icons.outlined.Repeat
 import androidx.compose.material.icons.outlined.Shuffle
+import androidx.compose.foundation.clickable
+import androidx.compose.material3.BottomSheetDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
@@ -76,7 +82,11 @@ import androidx.media3.common.Player
 import coil.compose.AsyncImage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.runtime.rememberCoroutineScope
 import moe.ouom.neriplayer.R
 import moe.ouom.neriplayer.ui.effect.glass.AdvancedGlassRole
 import moe.ouom.neriplayer.ui.effect.glass.AdvancedGlassOverscrollBackdrop
@@ -1408,7 +1418,8 @@ internal fun PlaylistModernPlaybackActions(
     onShufflePlay: () -> Unit,
     onToggleShuffle: () -> Unit,
     onCycleRepeatMode: () -> Unit,
-    onExportToLocalPlaylist: () -> Unit
+    onExportToLocalPlaylist: () -> Unit,
+    onOpenSortSheet: (() -> Unit)? = null
 ) {
     val canUseSongs = songCount > 0
     val visualColors = LocalPlaylistHeroVisualColors.current
@@ -1487,6 +1498,12 @@ internal fun PlaylistModernPlaybackActions(
                 onClick = onCycleRepeatMode
             )
             PlaylistCompactIconButton(
+                imageVector = Icons.AutoMirrored.Outlined.Sort,
+                contentDescription = stringResource(R.string.playlist_sort_title),
+                enabled = canUseSongs && onOpenSortSheet != null,
+                onClick = { onOpenSortSheet?.invoke() }
+            )
+            PlaylistCompactIconButton(
                 imageVector = Icons.AutoMirrored.Outlined.PlaylistAdd,
                 contentDescription = stringResource(R.string.playlist_export_to_local),
                 enabled = canUseSongs && exportEnabled,
@@ -1554,7 +1571,8 @@ internal fun LocalPlaylistPlaybackActions(
     onShufflePlay: () -> Unit,
     onToggleShuffle: () -> Unit,
     onCycleRepeatMode: () -> Unit,
-    onExportToLocalPlaylist: () -> Unit
+    onExportToLocalPlaylist: () -> Unit,
+    onOpenSortSheet: (() -> Unit)? = null
 ) {
     PlaylistModernPlaybackActions(
         songCount = songCount,
@@ -1565,6 +1583,89 @@ internal fun LocalPlaylistPlaybackActions(
         onShufflePlay = onShufflePlay,
         onToggleShuffle = onToggleShuffle,
         onCycleRepeatMode = onCycleRepeatMode,
-        onExportToLocalPlaylist = onExportToLocalPlaylist
+        onExportToLocalPlaylist = onExportToLocalPlaylist,
+        onOpenSortSheet = onOpenSortSheet
     )
 }
+
+/**
+ * 歌单内排序选择弹层：临时作用于列表展示顺序，不改动歌单存储顺序。
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun PlaylistSortSheet(
+    currentMode: PlaylistSortMode,
+    onSelectMode: (PlaylistSortMode) -> Unit,
+    onDismissRequest: () -> Unit
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val scope = rememberCoroutineScope()
+
+    fun dismissAnimated() {
+        scope.launch {
+            runCatching { sheetState.hide() }
+            onDismissRequest()
+        }
+    }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismissRequest,
+        sheetState = sheetState,
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+        containerColor = MaterialTheme.colorScheme.surface,
+        tonalElevation = 8.dp,
+        scrimColor = Color.Black.copy(alpha = 0.46f)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 24.dp)
+        ) {
+            Text(
+                text = stringResource(R.string.playlist_sort_title),
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp)
+            )
+            PlaylistSortMode.entries.forEach { mode ->
+                val selected = mode == currentMode
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(onClick = {
+                            onSelectMode(mode)
+                            dismissAnimated()
+                        })
+                        .padding(horizontal = 24.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Icon(
+                        imageVector = if (selected) {
+                            Icons.Filled.RadioButtonChecked
+                        } else {
+                            Icons.Outlined.RadioButtonUnchecked
+                        },
+                        contentDescription = null,
+                        tint = if (selected) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f)
+                        },
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Text(
+                        text = stringResource(mode.labelRes),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = if (selected) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.onSurface
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+

@@ -26,6 +26,13 @@
     <string name="playlist_exporting">Exporting playlists…</string>
     <string name="playlist_importing">Importing playlists…</string>
     <string name="playlist_import_complete">Import Complete!</string>
+    <string name="playlist_sort_title">Sort by</string>
+    <string name="playlist_sort_default">Default (custom order)</string>
+    <string name="playlist_sort_oldest_first">Oldest added first</string>
+    <string name="playlist_sort_newest_first">Newest added first</string>
+    <string name="playlist_sort_by_name">By song name</string>
+    <string name="playlist_sort_by_album">By album</string>
+    <string name="playlist_sort_by_artist">By artist</string>
     <string name="playlist_export_to_local">Export to Local</string>
     <string name="playlist_play_in_order">Play in Order</string>
     <string name="playlist_playback_mode">Playback Mode</string>
