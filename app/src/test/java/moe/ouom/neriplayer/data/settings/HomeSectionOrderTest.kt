@@ -80,16 +80,45 @@ class HomeSectionOrderTest {
             FakeSection(NeteaseHomeSongSource.TOP_HOT),
             FakeSection(NeteaseHomeSongSource.TOP_NEW)
         )
-        val merged = orderNeteaseHomeSections(radar, trending) { it.source.toHomeSectionId() }
+        val merged = orderNeteaseHomeSections(
+            radar,
+            trending,
+            DefaultNeteaseHomeSections
+        ) { it.source.toHomeSectionId() }
         assertEquals(
             DefaultNeteaseHomeSections.map { it.songSource },
             merged.map { it.source }
         )
 
-        // 未登录：radar 组只剩私人雷达，其余板块照常按默认顺序输出
+        // 用户自定义顺序必须真正生效（回归：曾写死默认顺序导致设置不生效）
+        val custom = listOf(
+            NeteaseHomeSectionId.TOP_HOT,
+            NeteaseHomeSectionId.PERSONAL_RADAR,
+            NeteaseHomeSectionId.TOP_NEW,
+            NeteaseHomeSectionId.DAILY_RECOMMEND,
+            NeteaseHomeSectionId.PRIVATE_FM,
+            NeteaseHomeSectionId.TOP_SOARING,
+            NeteaseHomeSectionId.PERSONALIZED_NEW_SONGS
+        )
+        assertEquals(
+            listOf(
+                NeteaseHomeSongSource.TOP_HOT,
+                NeteaseHomeSongSource.PERSONAL_RADAR,
+                NeteaseHomeSongSource.TOP_NEW,
+                NeteaseHomeSongSource.DAILY_RECOMMEND,
+                NeteaseHomeSongSource.PRIVATE_FM,
+                NeteaseHomeSongSource.TOP_SOARING,
+                NeteaseHomeSongSource.PERSONALIZED_NEW_SONGS
+            ),
+            orderNeteaseHomeSections(radar, trending, custom) { it.source.toHomeSectionId() }
+                .map { it.source }
+        )
+
+        // 未登录：radar 组只剩私人雷达，其余板块照常按保存顺序输出
         val anonymous = orderNeteaseHomeSections(
             radarSongSections = listOf(FakeSection(NeteaseHomeSongSource.PERSONAL_RADAR)),
-            trendingSongSections = trending
+            trendingSongSections = trending,
+            persistedOrder = DefaultNeteaseHomeSections
         ) { it.source.toHomeSectionId() }
         assertEquals(5, anonymous.size)
         assertTrue(anonymous.none { it.source == NeteaseHomeSongSource.DAILY_RECOMMEND })

@@ -201,6 +201,9 @@ private const val HomeScrollKeyNeteaseRadarPlaylists = "home:netease:radar-playl
 private const val HomeScrollKeyNeteaseRadarPlaylistsHeader = "$HomeScrollKeyNeteaseRadarPlaylists:header"
 private const val HomeScrollKeyNeteaseRadarPlaylistsContent = "$HomeScrollKeyNeteaseRadarPlaylists:content"
 
+/** 每日推荐继续播放卡片的动态封面（当日推荐第一首歌的专辑图），由首页板块数据刷新 */
+internal var homeDailyRecommendCoverLookup: String? = null
+
 internal fun shouldShowHomeContinueSection(
     showContinueCard: Boolean,
     usageLoaded: Boolean,
@@ -378,19 +381,27 @@ fun HomeScreen(
     val autoSettingsRepo = remember { AutoSettingsRepository(context.applicationContext) }
     val homeSectionsOrderRaw by autoSettingsRepo.homeSectionsOrderFlow
         .collectAsStateWithLifecycle(initialValue = null)
+    val homeSectionsOrder = remember(homeSectionsOrderRaw) {
+        parseNeteaseHomeSectionOrder(homeSectionsOrderRaw)
+    }
     val orderedNeteaseSongSections = remember(
-        homeSectionsOrderRaw,
+        homeSectionsOrder,
         ui.radarSongSections,
         ui.trendingSongSections
     ) {
         orderNeteaseHomeSections(
             radarSongSections = ui.radarSongSections,
-            trendingSongSections = ui.trendingSongSections
+            trendingSongSections = ui.trendingSongSections,
+            persistedOrder = homeSectionsOrder
         ) { it.source.toHomeSectionId() }
     }
     val showNeteaseTrending = showTrendingCard
     val showNeteaseRadar = showRadarCard
     val showOnlineFeeds = !offlineMode
+    // 每日推荐继续播放卡片的动态封面：当日推荐第一首歌的专辑图（复用板块已加载数据）
+    homeDailyRecommendCoverLookup = orderedNeteaseSongSections
+        .firstOrNull { it.source == NeteaseHomeSongSource.DAILY_RECOMMEND }
+        ?.section?.items?.firstOrNull()?.coverUrl
     var wasOffline by remember { mutableStateOf(offlineMode) }
     val windowWidthDp = currentWindowWidthDp()
     val isTabletLayout = windowWidthDp >= 720.dp
@@ -788,7 +799,7 @@ fun HomeScreen(
                                                     PlaylistSummary(
                                                         id = NETEASE_DAILY_RECOMMEND_PLAYLIST_VIEW_ID,
                                                         name = dailySongsTitleText,
-                                                        picUrl = "",
+                                                        picUrl = sectionState.section.items.firstOrNull()?.coverUrl.orEmpty(),
                                                         playCount = 0L,
                                                         trackCount = 0
                                                     )
@@ -835,8 +846,7 @@ fun HomeScreen(
                                             }
                                         }
                                         else -> null
-                                    },
-                                    headerCoverUrl = sectionState.section.items.firstOrNull()?.coverUrl
+                                    }
                                 )
                             }
 
@@ -955,8 +965,7 @@ private fun LazyGridScope.addNeteaseSongSection(
     onFavoriteToggle: (SongItem, Boolean) -> Unit,
     onShowSnackbar: (String) -> Unit,
     offlineMode: Boolean,
-    onOpenFullPlaylist: (() -> Unit)? = null,
-    headerCoverUrl: String? = null
+    onOpenFullPlaylist: (() -> Unit)? = null
 ) {
     item(
         key = registerKey("$sectionKey:header"),
@@ -965,8 +974,7 @@ private fun LazyGridScope.addNeteaseSongSection(
         SectionHeader(
             icon = icon,
             title = stringResource(sectionState.source.titleRes),
-            onClick = onOpenFullPlaylist,
-            coverUrl = headerCoverUrl
+            onClick = onOpenFullPlaylist
         )
     }
     sectionContent(
@@ -1064,8 +1072,7 @@ private fun neteaseSongSectionIcon(source: NeteaseHomeSongSource): ImageVector {
 private fun SectionHeader(
     icon: ImageVector,
     title: String,
-    onClick: (() -> Unit)? = null,
-    coverUrl: String? = null
+    onClick: (() -> Unit)? = null
 ) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -1079,31 +1086,12 @@ private fun SectionHeader(
                 }
             )
     ) {
-        if (!coverUrl.isNullOrBlank()) {
-            // 动态封面：取板块当日列表第一首歌的专辑封面，加载失败/无图时回退到图标
-            val context = LocalContext.current
-            AsyncImage(
-                model = fastScrollableImageRequest(
-                    context = context,
-                    data = coverUrl,
-                    sizePx = 96,
-                    offlineMode = false
-                ),
-                error = null,
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier
-                    .size(22.dp)
-                    .clip(RoundedCornerShape(6.dp))
-            )
-        } else {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(22.dp)
-            )
-        }
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(22.dp)
+        )
         Text(
             text = title,
             style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.ExtraBold),
@@ -2185,7 +2173,9 @@ private fun ContinueCard(
     } else {
         null
     }
-    val coverUrl = resolvedLocalCoverUrl ?: entry.picUrl
+    val coverUrl = resolvedLocalCoverUrl
+        ?: entry.picUrl?.takeIf { it.isNotBlank() }
+        ?: dailyRecommendFallbackCoverUrl(entry)
 
     Column(
         modifier = modifier
@@ -2249,6 +2239,18 @@ private fun ContinueCard(
                 }
             )
         }
+    }
+}
+
+/**
+ * 每日推荐是虚拟歌单（视图 ID），没有真实封面图，
+ * 继续播放卡片用当日推荐列表第一首歌的专辑封面兜底（复用首页已加载数据，零额外请求）。
+ */
+private fun dailyRecommendFallbackCoverUrl(entry: UsageEntry): String? {
+    return if (entry.source == "netease" && entry.id == NETEASE_DAILY_RECOMMEND_PLAYLIST_VIEW_ID) {
+        homeDailyRecommendCoverLookup
+    } else {
+        null
     }
 }
 

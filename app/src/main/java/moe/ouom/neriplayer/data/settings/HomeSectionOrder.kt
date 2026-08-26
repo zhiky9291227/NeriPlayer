@@ -55,17 +55,25 @@ fun NeteaseHomeSongSource.toHomeSectionId(): NeteaseHomeSectionId {
 /**
  * 把「雷达组 + 榜单组」两组板块流合并成用户自定义顺序的单列表，
  * 只保留请求顺序里实际存在的板块（未登录时每日推荐/私人FM不在列表里）。
+ *
+ * @param persistedOrder 用户在设置里保存并持久化的完整顺序表
+ * （经 [parseNeteaseHomeSectionOrder] 解析，保证去重且包含全部板块 id）。
+ * 必须显式传入——此前这里写死默认顺序，导致首页永远按出厂顺序渲染。
  */
 internal fun <T> orderNeteaseHomeSections(
     radarSongSections: List<T>,
     trendingSongSections: List<T>,
+    persistedOrder: List<NeteaseHomeSectionId>,
     keyOf: (T) -> NeteaseHomeSectionId
 ): List<T> {
     val byKey = LinkedHashMap<NeteaseHomeSectionId, T>()
     (radarSongSections.asSequence() + trendingSongSections.asSequence()).forEach { section ->
         byKey.putIfAbsent(keyOf(section), section)
     }
-    return DefaultNeteaseHomeSections.mapNotNull { id -> byKey[id] }.ifEmpty {
-        byKey.values.toList()
-    }
+    // 按用户保存的顺序取板块；若顺序表意外漏掉某些 id（脏数据防御），
+    // 剩余板块按原请求顺序补尾，保证任何情况下都不丢板块
+    val covered = persistedOrder.toHashSet()
+    val ordered = persistedOrder.mapNotNull { id -> byKey[id] }
+    val uncovered = byKey.filterKeys { it !in covered }.values
+    return ordered + uncovered
 }
