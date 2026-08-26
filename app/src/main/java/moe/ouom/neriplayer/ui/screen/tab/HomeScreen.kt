@@ -29,6 +29,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -407,8 +408,8 @@ fun HomeScreen(
     val isTabletLayout = windowWidthDp >= 720.dp
     val pageHorizontalPadding = if (isTabletLayout) 28.dp else 16.dp
     val gridMinCellSize = if (isTabletLayout) 156.dp else 120.dp
-    val gridContentPadding = if (isTabletLayout) 14.dp else 8.dp
-    val gridSpacing = if (isTabletLayout) 14.dp else 10.dp
+    val gridContentPadding = if (isTabletLayout) 16.dp else 12.dp
+    val gridSpacing = if (isTabletLayout) 14.dp else 12.dp
 
     fun toggleHomeSongFavorite(song: SongItem, isFavorite: Boolean) {
         scope.launch {
@@ -1074,39 +1075,48 @@ private fun SectionHeader(
     title: String,
     onClick: (() -> Unit)? = null
 ) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
+    Column(
         modifier = Modifier
+            .fillMaxWidth()
             .padding(horizontal = 8.dp, vertical = 10.dp)
-            .then(
-                if (onClick != null) {
-                    Modifier.clip(RoundedCornerShape(8.dp)).clickable(onClick = onClick)
-                } else {
-                    Modifier
-                }
-            )
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(22.dp)
-        )
-        Text(
-            text = title,
-            style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.ExtraBold),
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.padding(start = 8.dp)
-        )
-        if (onClick != null) {
-            Spacer(Modifier.width(4.dp))
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .then(
+                    if (onClick != null) {
+                        Modifier.clip(RoundedCornerShape(8.dp)).clickable(onClick = onClick)
+                    } else {
+                        Modifier
+                    }
+                )
+        ) {
             Icon(
-                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                contentDescription = stringResource(R.string.cd_open_full_playlist),
+                imageVector = icon,
+                contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(18.dp)
+                modifier = Modifier.size(22.dp)
             )
+            Text(
+                text = title,
+                style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.ExtraBold),
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(start = 8.dp)
+            )
+            if (onClick != null) {
+                Spacer(Modifier.width(4.dp))
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    contentDescription = stringResource(R.string.cd_open_full_playlist),
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
         }
+        HorizontalDivider(
+            modifier = Modifier.padding(top = 8.dp),
+            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+        )
     }
 }
 

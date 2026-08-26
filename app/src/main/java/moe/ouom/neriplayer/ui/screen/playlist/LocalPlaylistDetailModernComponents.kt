@@ -1475,7 +1475,7 @@ internal fun PlaylistModernPlaybackActions(
         )
 
         Row(
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             PlaylistCompactIconButton(
@@ -1506,17 +1506,19 @@ internal fun PlaylistModernPlaybackActions(
                 onClick = { onOpenSortSheet?.invoke() }
             )
             PlaylistCompactIconButton(
-                imageVector = Icons.Outlined.CloudUpload,
-                contentDescription = stringResource(R.string.local_playlist_sync_netease_playlist_upload),
-                enabled = canUseSongs && onSyncPlaylistToNetease != null,
-                onClick = { onSyncPlaylistToNetease?.invoke() }
-            )
-            PlaylistCompactIconButton(
                 imageVector = Icons.AutoMirrored.Outlined.PlaylistAdd,
                 contentDescription = stringResource(R.string.playlist_export_to_local),
                 enabled = canUseSongs && exportEnabled,
-                onClick = onExportToLocalPlaylist,
+                onClick = onExportToLocalPlaylist
             )
+            if (onSyncPlaylistToNetease != null) {
+                PlaylistCompactIconButton(
+                    imageVector = Icons.Outlined.CloudUpload,
+                    contentDescription = stringResource(R.string.local_playlist_sync_netease_playlist_upload),
+                    enabled = canUseSongs,
+                    onClick = onSyncPlaylistToNetease
+                )
+            }
         }
     }
 }
