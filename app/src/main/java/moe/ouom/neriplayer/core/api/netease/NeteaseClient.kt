@@ -1045,6 +1045,24 @@ class NeteaseClient {
         )
     }
 
+    /**
+     * 在当前登录账号下新建网易云歌单
+     * @param name 歌单名
+     * @param privacy true=隐私歌单（仅自己可见）
+     * @return 原始 JSON；成功时含新歌单 id
+     */
+    @Throws(IOException::class)
+    fun createPlaylist(name: String, privacy: Boolean = false): String {
+        return callWeApi(
+            path = "/playlist/create",
+            params = mapOf(
+                "name" to name,
+                "privacy" to (if (privacy) "10" else "0")
+            ),
+            usePersistedCookies = true
+        )
+    }
+
     /** 获取网易云歌单创建者的用户 ID；非歌单或解析失败返回 -1 */
     suspend fun getPlaylistCreatorUserId(playlistId: Long): Long {
         return withContext(Dispatchers.IO) {

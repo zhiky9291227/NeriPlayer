@@ -33,6 +33,9 @@
     <string name="local_playlist_delete_confirm">确定要删除此歌单吗？删除后可通过提示撤销。</string>
     <string name="local_playlist_delete_songs">删除所选歌曲</string>
     <string name="local_playlist_delete_count">删除（%d）</string>
+    <string name="local_playlist_sync_netease_playlist_upload">同步此歌单到网易云</string>
+    <string name="local_playlist_sync_netease_playlist_upload_title">同步歌单到网易云？</string>
+    <string name="local_playlist_sync_netease_playlist_upload_message">将在网易云账号创建（或复用）同名歌单「%1$s」并同步歌曲，云端多出的歌曲会保留。</string>
     <string name="local_playlist_sync_netease_two_way">与网易云双向同步</string>
     <string name="local_playlist_sync_netease_two_way_remote_only">网易云还有 %1$d 首本地未收藏的歌，已保留在网易云</string>
     <string name="local_playlist_sync_netease_liked">同步到网易云我喜欢的音乐</string>

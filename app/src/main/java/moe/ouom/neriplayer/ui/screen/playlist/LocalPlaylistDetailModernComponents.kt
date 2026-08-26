@@ -28,6 +28,7 @@ import androidx.compose.material.icons.filled.RadioButtonChecked
 import androidx.compose.material.icons.filled.RepeatOne
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.outlined.RadioButtonUnchecked
+import androidx.compose.material.icons.outlined.CloudUpload
 import androidx.compose.material.icons.outlined.Repeat
 import androidx.compose.material.icons.outlined.Shuffle
 import androidx.compose.foundation.clickable
@@ -1419,7 +1420,8 @@ internal fun PlaylistModernPlaybackActions(
     onToggleShuffle: () -> Unit,
     onCycleRepeatMode: () -> Unit,
     onExportToLocalPlaylist: () -> Unit,
-    onOpenSortSheet: (() -> Unit)? = null
+    onOpenSortSheet: (() -> Unit)? = null,
+    onSyncPlaylistToNetease: (() -> Unit)? = null
 ) {
     val canUseSongs = songCount > 0
     val visualColors = LocalPlaylistHeroVisualColors.current
@@ -1504,6 +1506,12 @@ internal fun PlaylistModernPlaybackActions(
                 onClick = { onOpenSortSheet?.invoke() }
             )
             PlaylistCompactIconButton(
+                imageVector = Icons.Outlined.CloudUpload,
+                contentDescription = stringResource(R.string.local_playlist_sync_netease_playlist_upload),
+                enabled = canUseSongs && onSyncPlaylistToNetease != null,
+                onClick = { onSyncPlaylistToNetease?.invoke() }
+            )
+            PlaylistCompactIconButton(
                 imageVector = Icons.AutoMirrored.Outlined.PlaylistAdd,
                 contentDescription = stringResource(R.string.playlist_export_to_local),
                 enabled = canUseSongs && exportEnabled,
@@ -1572,7 +1580,8 @@ internal fun LocalPlaylistPlaybackActions(
     onToggleShuffle: () -> Unit,
     onCycleRepeatMode: () -> Unit,
     onExportToLocalPlaylist: () -> Unit,
-    onOpenSortSheet: (() -> Unit)? = null
+    onOpenSortSheet: (() -> Unit)? = null,
+    onSyncPlaylistToNetease: (() -> Unit)? = null
 ) {
     PlaylistModernPlaybackActions(
         songCount = songCount,
@@ -1584,7 +1593,8 @@ internal fun LocalPlaylistPlaybackActions(
         onToggleShuffle = onToggleShuffle,
         onCycleRepeatMode = onCycleRepeatMode,
         onExportToLocalPlaylist = onExportToLocalPlaylist,
-        onOpenSortSheet = onOpenSortSheet
+        onOpenSortSheet = onOpenSortSheet,
+        onSyncPlaylistToNetease = onSyncPlaylistToNetease
     )
 }
 

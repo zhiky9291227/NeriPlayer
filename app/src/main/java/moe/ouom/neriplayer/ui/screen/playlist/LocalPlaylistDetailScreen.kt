@@ -559,6 +559,8 @@ fun LocalPlaylistDetailScreen(
                 mutableStateOf(PlaylistSortMode.DEFAULT)
             }
             var showSortSheet by remember { mutableStateOf(false) }
+            // 整歌单上传到网易云（非收藏歌单）：确认后同名复用/新建+补差
+            var showNeteasePlaylistUploadConfirm by remember { mutableStateOf(false) }
             var headerSearchFocused by remember { mutableStateOf(false) }
             var dockedSearchFocused by remember { mutableStateOf(false) }
             val searchInputState = rememberPlaylistSearchInputState(
@@ -2009,7 +2011,12 @@ fun LocalPlaylistDetailScreen(
                                                 onExportToLocalPlaylist = {
                                                     showExportAllSheet = true
                                                 },
-                                                onOpenSortSheet = { showSortSheet = true }
+                                                onOpenSortSheet = { showSortSheet = true },
+                                                onSyncPlaylistToNetease = if (!isFavorites) {
+                                                    { showNeteasePlaylistUploadConfirm = true }
+                                                } else {
+                                                    null
+                                                }
                                             )
                                         }
                                     }
@@ -2574,6 +2581,41 @@ fun LocalPlaylistDetailScreen(
                         currentMode = sortMode,
                         onSelectMode = { sortMode = it },
                         onDismissRequest = { showSortSheet = false }
+                    )
+                }
+
+                if (showNeteasePlaylistUploadConfirm && playlist != null) {
+                    AlertDialog(
+                        onDismissRequest = { showNeteasePlaylistUploadConfirm = false },
+                        title = { Text(stringResource(R.string.local_playlist_sync_netease_playlist_upload_title)) },
+                        text = {
+                            Text(
+                                composeResources.getString(
+                                    R.string.local_playlist_sync_netease_playlist_upload_message,
+                                    playlist.name
+                                )
+                            )
+                        },
+                        confirmButton = {
+                            HapticTextButton(
+                                onClick = {
+                                    showNeteasePlaylistUploadConfirm = false
+                                    if (syncInProgress) return@HapticTextButton
+                                    syncInProgress = true
+                                    vm.syncPlaylistToNetease(playlist.id) { result ->
+                                        handleNeteaseSyncResult(
+                                            result = result,
+                                            targetPlaylistName = playlist.name
+                                        )
+                                    }
+                                }
+                            ) { Text(stringResource(R.string.action_confirm)) }
+                        },
+                        dismissButton = {
+                            HapticTextButton(
+                                onClick = { showNeteasePlaylistUploadConfirm = false }
+                            ) { Text(stringResource(R.string.action_cancel)) }
+                        }
                     )
                 }
 

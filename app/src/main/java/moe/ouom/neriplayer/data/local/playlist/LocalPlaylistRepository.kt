@@ -2241,6 +2241,90 @@ class LocalPlaylistRepository private constructor(
         }
     }
 
+    /**
+     * 把本地歌单同步为网易云账号下的歌单：
+     * - 网易云已有同名歌单（自己创建的）→ 复用，只补缺的歌
+     * - 不存在 → 新建同名歌单再灌入
+     * 防乒乓与红心同步同理：只上传不删除，网易云端多出的歌保留。
+     */
+    suspend fun syncLocalPlaylistToNetease(
+        client: NeteaseClient,
+        playlistId: Long
+    ): NeteaseLikeSyncResult {
+        return withContext(Dispatchers.IO) {
+            requireInitialized()
+            val playlist = _playlists.value.firstOrNull { it.id == playlistId }
+                ?: return@withContext NeteaseLikeSyncResult(
+                    totalSongs = 0,
+                    supportedSongs = 0,
+                    skippedUnsupported = 0,
+                    skippedExisting = 0,
+                    added = 0,
+                    failed = 0,
+                    message = context.getString(R.string.local_playlist_sync_netease_empty)
+                )
+
+            // 远程歌单列表里可能带「(已下载)」等后缀的本地名匹配不到，做一次精确名匹配，
+            // 匹配不到再走新建——名称唯一性由用户自己保证（重名会复用第一个）。
+            val remotePlaylists = runCatching { fetchNeteaseRemotePlaylists(client) }.getOrElse { error ->
+                NPLogger.e("LocalPlaylistRepo", "fetch remote playlists failed: ${error.message}", error)
+                return@withContext NeteaseLikeSyncResult(
+                    totalSongs = playlist.songs.size,
+                    supportedSongs = 0,
+                    skippedUnsupported = playlist.songs.size,
+                    skippedExisting = 0,
+                    added = 0,
+                    failed = 0,
+                    message = error.message ?: NETEASE_COMPARE_FAILED_MESSAGE
+                )
+            }
+            val existing = remotePlaylists.firstOrNull { it.name == playlist.name }
+
+            val targetId = if (existing != null) {
+                existing.id
+            } else {
+                val createRaw = runCatching { client.createPlaylist(playlist.name) }.getOrElse { error ->
+                    NPLogger.e("LocalPlaylistRepo", "createPlaylist failed: ${error.message}", error)
+                    return@withContext NeteaseLikeSyncResult(
+                        totalSongs = playlist.songs.size,
+                        supportedSongs = 0,
+                        skippedUnsupported = playlist.songs.size,
+                        skippedExisting = 0,
+                        added = 0,
+                        failed = 0,
+                        message = error.message ?: NETEASE_COMPARE_FAILED_MESSAGE
+                    )
+                }
+                parseNeteaseCode(createRaw).takeIf { it == 200 } ?: run {
+                    return@withContext NeteaseLikeSyncResult(
+                        totalSongs = playlist.songs.size,
+                        supportedSongs = 0,
+                        skippedUnsupported = playlist.songs.size,
+                        skippedExisting = 0,
+                        added = 0,
+                        failed = 0,
+                        message = createRaw
+                    )
+                }
+                runCatching {
+                    JSONObject(createRaw).optJSONObject("playlist")?.optLong("id", 0L).takeIf { it != 0L }
+                }.getOrNull() ?: run {
+                    return@withContext NeteaseLikeSyncResult(
+                        totalSongs = playlist.songs.size,
+                        supportedSongs = 0,
+                        skippedUnsupported = playlist.songs.size,
+                        skippedExisting = 0,
+                        added = 0,
+                        failed = 0,
+                        message = NETEASE_COMPARE_FAILED_MESSAGE
+                    )
+                }
+            }
+
+            syncSongsToNeteasePlaylist(client, targetId, playlist.songs)
+        }
+    }
+
     suspend fun prepareNeteaseLikeSyncPlan(
         client: NeteaseClient,
         songs: List<SongItem>

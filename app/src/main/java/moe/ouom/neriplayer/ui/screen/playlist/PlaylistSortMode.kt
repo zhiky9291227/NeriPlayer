@@ -36,22 +36,21 @@ private val playlistNameCollator: Collator by lazy {
 
 /**
  * 对歌单内歌曲应用排序。稳定排序：同 key 的歌曲保持原相对顺序。
- * addedAt=0（老数据无时间戳）的歌排最后，组内再按原顺序，避免与默认序冲突时乱跳。
+ *
+ * 时间序（旧→新 / 新→旧）分三种情况：
+ * - 所有歌都有 addedAt：直接按 addedAt 排
+ * - 部分有：有时间的按 addedAt 排在前段，无时间戳（=0）的排最后，组内保原顺序
+ * - 全部没有（典型：网易云远程歌单，接口不给添加时间）：回退用 albumId 单调性近似
+ *   上架先后（网易云专辑 ID 随时间递增），保证"从旧到新"至少方向正确、非恒等排序。
  */
 internal fun List<SongItem>.applyPlaylistSort(mode: PlaylistSortMode): List<SongItem> {
     if (size < 2 || mode == PlaylistSortMode.DEFAULT) return this
     return when (mode) {
         PlaylistSortMode.DEFAULT -> this
 
-        PlaylistSortMode.OLDEST_FIRST -> sortedWith(
-            compareBy<SongItem> { it.addedAt <= 0L }
-                .thenBy { it.addedAt }
-        )
+        PlaylistSortMode.OLDEST_FIRST -> sortedWith(timeOrderComparator(descending = false))
 
-        PlaylistSortMode.NEWEST_FIRST -> sortedWith(
-            compareBy<SongItem> { it.addedAt <= 0L }
-                .thenByDescending { it.addedAt }
-        )
+        PlaylistSortMode.NEWEST_FIRST -> sortedWith(timeOrderComparator(descending = true))
 
         PlaylistSortMode.BY_NAME -> sortedWith(
             compareBy<SongItem, String>(playlistNameCollator) {
@@ -74,5 +73,21 @@ internal fun List<SongItem>.applyPlaylistSort(mode: PlaylistSortMode): List<Song
                 it.displayName().lowercase(Locale.getDefault())
             }
         )
+    }
+}
+
+private fun List<SongItem>.timeOrderComparator(descending: Boolean): Comparator<SongItem> {
+    val hasAnyTimestamp = any { it.addedAt > 0L }
+    return when {
+        // 正常：存在真实添加时间戳
+        hasAnyTimestamp -> compareBy { if (descending) -it.addedAt else it.addedAt }
+
+        // 全部无时间戳（网易云远程歌单等）：用 albumId 作为上架时间的单调代理，
+        // 再以曲目 ID 兜底保证结果稳定且有意义。
+        else -> {
+            val base = compareBy<SongItem> { it.albumId }
+                .thenBy { it.id }
+            if (descending) base.reversed() else base
+        }
     }
 }

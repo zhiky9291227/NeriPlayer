@@ -559,6 +559,19 @@ class LocalPlaylistDetailViewModel(application: Application) : AndroidViewModel(
         }
     }
 
+    fun syncPlaylistToNetease(
+        playlistId: Long,
+        onResult: (NeteaseLikeSyncResult) -> Unit
+    ) {
+        viewModelScope.launch {
+            val result = repo.syncLocalPlaylistToNetease(
+                client = AppContainer.neteaseClient,
+                playlistId = playlistId
+            )
+            onResult(result)
+        }
+    }
+
     fun syncSongsToNeteaseLiked(
         songs: List<SongItem>,
         onResult: (NeteaseLikeSyncResult) -> Unit
