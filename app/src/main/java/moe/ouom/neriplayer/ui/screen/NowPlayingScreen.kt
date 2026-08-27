@@ -2927,93 +2927,103 @@ fun NowPlayingScreen(
                 }
 
                 val mainPlaybackControls: @Composable () -> Unit = {
-                    BoxWithConstraints(
+                    // v36:五键横向核心控制轴(随机/上一首/播放/下一首/队列),
+                    // SpaceEvenly 同一水平中心线,播放键最大,随机/队列更轻量;
+                    // 无背景无容器,不再使用 resolveNowPlayingMainControlsLayout 的三键布局
+                    Row(
                         modifier = Modifier.fillMaxWidth(),
-                        contentAlignment = Alignment.Center
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        val controlsLayout = resolveNowPlayingMainControlsLayout(
-                            availableWidth = maxWidth,
-                            secondaryButtonSize = secondaryControlButtonSize,
-                            primaryButtonSize = primaryControlButtonSize,
-                            preferredSpacing = controlButtonSpacing
-                        )
-                        val secondaryIconSize = (
-                            nowPlayingMainControlIconSize *
-                                (controlsLayout.secondaryButtonSize.value /
-                                    secondaryControlButtonSize.value)
-                            ).coerceAtLeast(18.dp)
-                        val primaryIconSize = (
-                            nowPlayingMainControlIconSize *
-                                (controlsLayout.primaryButtonSize.value /
-                                    primaryControlButtonSize.value)
-                            ).coerceAtLeast(18.dp)
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(controlsLayout.spacing),
-                            verticalAlignment = Alignment.CenterVertically
+                        // 随机(核心控制内的次级操作)
+                        HapticIconButton(
+                            onClick = { PlayerManager.setShuffle(!shuffleEnabled) },
+                            modifier = Modifier.size(44.dp)
                         ) {
-                            HapticIconButton(
-                                onClick = { PlayerManager.previous() },
-                                modifier = Modifier
-                                    .sharedElement(
-                                        rememberSharedContentState(
-                                            key = NowPlayingLyricsSharedTransitionElement.PREVIOUS.key
-                                        ),
-                                        animatedVisibilityScope = this@AnimatedContent
-                                    )
-                                    .size(controlsLayout.secondaryButtonSize)
-                            ) {
-                                Icon(
-                                    Icons.Outlined.SkipPrevious,
-                                    contentDescription = stringResource(R.string.player_previous),
-                                    modifier = Modifier.size(secondaryIconSize)
-                                )
-                            }
-
-                            HapticFilledIconButton(
-                                onClick = { PlayerManager.togglePlayPause() },
-                                enabled = !usbPlaybackPreparing,
-                                modifier = Modifier
-                                    .sharedElement(
-                                        rememberSharedContentState(
-                                            key = NowPlayingLyricsSharedTransitionElement.PLAY.key
-                                        ),
-                                        animatedVisibilityScope = this@AnimatedContent
-                                    )
-                                    .size(controlsLayout.primaryButtonSize)
-                            ) {
-                                PlaybackControlIndicator(
-                                    isPlaying = isPlaybackControlPlaying,
-                                    isPlaybackWaiting = isPlaybackWaiting,
-                                    isAudioRouteMuted = isAudioRouteMuted,
-                                    playContentDescription = stringResource(R.string.player_play),
-                                    pauseContentDescription = stringResource(R.string.player_pause),
-                                    restoreVolumeContentDescription = stringResource(R.string.player_restore_volume),
-                                    waitingContentDescription = stringResource(R.string.player_waiting),
-                                    modifier = Modifier.size(primaryIconSize),
-                                    progressIndicatorSize = primaryIconSize
-                                )
-                            }
-
-                            HapticIconButton(
-                                onClick = { PlayerManager.next() },
-                                modifier = Modifier
-                                    .sharedElement(
-                                        rememberSharedContentState(
-                                            key = NowPlayingLyricsSharedTransitionElement.NEXT.key
-                                        ),
-                                        animatedVisibilityScope = this@AnimatedContent
-                                    )
-                                    .size(controlsLayout.secondaryButtonSize)
-                            ) {
-                                Icon(
-                                    Icons.Outlined.SkipNext,
-                                    contentDescription = stringResource(R.string.player_next),
-                                    modifier = Modifier.size(secondaryIconSize)
-                                )
-                            }
+                            Icon(
+                                Icons.Outlined.Shuffle,
+                                contentDescription = stringResource(R.string.player_shuffle),
+                                tint = if (shuffleEnabled) {
+                                    nowPlayingActiveIconColor
+                                } else {
+                                    LocalContentColor.current.copy(alpha = 0.55f)
+                                },
+                                modifier = Modifier.size(nowPlayingToolbarIconSize)
+                            )
                         }
-                        // v33:核心控制只有一根水平轴(上一首/播放/下一首),
-                        // 随机/循环已下沉到辅助操作行,不再作为中央按钮的附属层
+
+                        HapticIconButton(
+                            onClick = { PlayerManager.previous() },
+                            modifier = Modifier
+                                .sharedElement(
+                                    rememberSharedContentState(
+                                        key = NowPlayingLyricsSharedTransitionElement.PREVIOUS.key
+                                    ),
+                                    animatedVisibilityScope = this@AnimatedContent
+                                )
+                                .size(secondaryControlButtonSize)
+                        ) {
+                            Icon(
+                                Icons.Outlined.SkipPrevious,
+                                contentDescription = stringResource(R.string.player_previous),
+                                modifier = Modifier.size(nowPlayingMainControlIconSize)
+                            )
+                        }
+
+                        HapticFilledIconButton(
+                            onClick = { PlayerManager.togglePlayPause() },
+                            enabled = !usbPlaybackPreparing,
+                            modifier = Modifier
+                                .sharedElement(
+                                    rememberSharedContentState(
+                                        key = NowPlayingLyricsSharedTransitionElement.PLAY.key
+                                    ),
+                                    animatedVisibilityScope = this@AnimatedContent
+                                )
+                                .size(primaryControlButtonSize)
+                        ) {
+                            PlaybackControlIndicator(
+                                isPlaying = isPlaybackControlPlaying,
+                                isPlaybackWaiting = isPlaybackWaiting,
+                                isAudioRouteMuted = isAudioRouteMuted,
+                                playContentDescription = stringResource(R.string.player_play),
+                                pauseContentDescription = stringResource(R.string.player_pause),
+                                restoreVolumeContentDescription = stringResource(R.string.player_restore_volume),
+                                waitingContentDescription = stringResource(R.string.player_waiting),
+                                modifier = Modifier.size(nowPlayingMainControlIconSize),
+                                progressIndicatorSize = nowPlayingMainControlIconSize
+                            )
+                        }
+
+                        HapticIconButton(
+                            onClick = { PlayerManager.next() },
+                            modifier = Modifier
+                                .sharedElement(
+                                    rememberSharedContentState(
+                                        key = NowPlayingLyricsSharedTransitionElement.NEXT.key
+                                    ),
+                                    animatedVisibilityScope = this@AnimatedContent
+                                )
+                                .size(secondaryControlButtonSize)
+                        ) {
+                            Icon(
+                                Icons.Outlined.SkipNext,
+                                contentDescription = stringResource(R.string.player_next),
+                                modifier = Modifier.size(nowPlayingMainControlIconSize)
+                            )
+                        }
+
+                        // 队列(核心控制内的次级操作)
+                        HapticIconButton(
+                            onClick = { showQueueSheet = true },
+                            modifier = Modifier.size(44.dp)
+                        ) {
+                            Icon(
+                                Icons.AutoMirrored.Outlined.QueueMusic,
+                                contentDescription = stringResource(R.string.playlist_queue),
+                                modifier = Modifier.size(nowPlayingToolbarIconSize)
+                            )
+                        }
                     }
                 }
 
@@ -3044,9 +3054,8 @@ fun NowPlayingScreen(
                     )
                 }
 
-                // 辅助操作行(v34):随机/循环/歌词/队列,视觉上紧跟核心控制、
-                // 同属一个播放器控制区域;无背景无 dock 无文字。
-                // 不再叠加 navigationBars insets(外层 contentModifier 已含),避免与页底双重留白
+                // 辅助工具行(v36):循环/歌词/更多,低存在感次级操作区;
+                // 随机/队列已升入核心控制轴,定时保持更多菜单
                 val nowPlayingAuxiliaryRow: @Composable () -> Unit = {
                     Row(
                         modifier = Modifier
@@ -3055,23 +3064,7 @@ fun NowPlayingScreen(
                         horizontalArrangement = Arrangement.SpaceEvenly,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // 随机播放
-                        HapticIconButton(
-                            onClick = { PlayerManager.setShuffle(!shuffleEnabled) },
-                            modifier = Modifier.size(44.dp)
-                        ) {
-                            Icon(
-                                Icons.Outlined.Shuffle,
-                                contentDescription = stringResource(R.string.player_shuffle),
-                                tint = if (shuffleEnabled) {
-                                    nowPlayingActiveIconColor
-                                } else {
-                                    LocalContentColor.current.copy(alpha = 0.55f)
-                                },
-                                modifier = Modifier.size(nowPlayingToolbarIconSize)
-                            )
-                        }
-                        // 循环模式
+                        // 循环模式(播放模式,与随机分开:随机在核心轴、循环在此)
                         HapticIconButton(
                             onClick = { PlayerManager.cycleRepeatMode() },
                             modifier = Modifier.size(44.dp)
@@ -3116,24 +3109,9 @@ fun NowPlayingScreen(
                                 modifier = Modifier.size(nowPlayingToolbarIconSize)
                             )
                         }
-                        // 播放队列
-                        HapticIconButton(
-                            onClick = { showQueueSheet = true },
-                            modifier = Modifier
-                                .sharedBounds(
-                                    rememberSharedContentState(key = "btn_queue"),
-                                    animatedVisibilityScope = this@AnimatedContent,
-                                    enter = EnterTransition.None,
-                                    exit = ExitTransition.None,
-                                ).zIndex(1f)
-                        ) {
-                            Icon(
-                                Icons.AutoMirrored.Outlined.QueueMusic,
-                                contentDescription = stringResource(R.string.playlist_queue),
-                                modifier = Modifier.size(nowPlayingToolbarIconSize)
-                            )
+                        // 更多(v36:顶栏入口下沉至此)
+                        // v36:「更多」入口下沉到底部辅助工具行,顶栏保持 ⌄ + ♡
                         }
-                    }
                 }
 
                 // 主列内容
@@ -3213,22 +3191,7 @@ fun NowPlayingScreen(
                                 )
                             }
 
-                            HapticIconButton(
-                                onClick = { showMoreOptions = true },
-                                modifier = Modifier.size(nowPlayingTopActionButtonSize)
-                                    .sharedBounds(
-                                        rememberSharedContentState(key = "btn_more"),
-                                        animatedVisibilityScope = this@AnimatedContent,
-                                        enter = EnterTransition.None,
-                                        exit = ExitTransition.None,
-                                    ).zIndex(1f)
-                            ) {
-                                Icon(
-                                    Icons.Filled.MoreVert,
-                                    contentDescription = stringResource(R.string.nowplaying_more_options),
-                                    modifier = Modifier.size(nowPlayingTopActionIconSize)
-                                )
-                            }
+                            // v36:「更多」入口下沉到底部辅助工具行,顶栏保持 ⌄ + ♡
                             if (showMoreOptions && currentSong != null) {
                                 MoreOptionsSheet(
                                     viewModel = nowPlayingViewModel,
@@ -3274,8 +3237,8 @@ fun NowPlayingScreen(
                                 maxHeight * 0.42f
                             )
                             isLandscape -> minOf(windowWidthDp * 0.45f, maxHeight * 0.5f, maxWidth)
-                            // 封面是主视觉但不独占全页:留出紧凑播放核心区的呼吸空间
-                            else -> minOf(maxWidth * 0.85f, maxHeight * 0.56f)
+                            // 封面是主视觉:v36 加大至 0.885 屏宽,靠近参考图的封面权重
+                            else -> minOf(maxWidth * 0.885f, maxHeight * 0.58f)
                         }
                         val coverRequestSizePx = with(LocalDensity.current) {
                             coverSize.roundToPx().coerceAtLeast(256)
@@ -3401,18 +3364,18 @@ fun NowPlayingScreen(
                         }
                     }
 
-                    Spacer(Modifier.height(12.dp))
+                    Spacer(Modifier.height(16.dp))
 
-                    // 标题
+                    // 歌曲信息(v36):左对齐信息块,标题为主、艺术家次级,形成明确左起始线
                     AnimatedVisibility(
                         visible = contentVisible,
-                        modifier = Modifier.align(Alignment.CenterHorizontally),
+                        modifier = Modifier.align(Alignment.Start),
                         enter = slideInVertically(
                             animationSpec = tween(durationMillis = 400, delayMillis = 150),
                             initialOffsetY = { it / 4 }
                         ) + fadeIn(animationSpec = tween(durationMillis = 400, delayMillis = 150))
                     ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Column(horizontalAlignment = Alignment.Start) {
                             BoxWithConstraints {
                                 NowPlayingSongTitle(
                                     text = currentSong?.customName ?: currentSong?.name ?: "",
