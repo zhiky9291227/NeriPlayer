@@ -110,13 +110,9 @@ fun WaveformSlider(
         }
     }
 
-    val animatedAmplitude by animateFloatAsState(
-        targetValue = if (
-            enabled && isPlaying && !isPlaybackWaiting && !isDragging
-        ) WAVE_AMPLITUDE else 0f,
-        animationSpec = tween(durationMillis = 500, easing = LinearEasing),
-        label = "amplitude_animation"
-    )
+    // 进度条改标准细线(用户清单第五条):取消正弦波形装饰,振幅恒 0
+    // ——波形路径退化为直线,已播放=强调色/未播放=低对比半透明,thumb 落在直线上
+    val animatedAmplitude = 0f
 
     var phase by remember { mutableFloatStateOf(0f) }
     val lifecycleOwner = LocalLifecycleOwner.current
