@@ -3494,9 +3494,9 @@ fun NowPlayingScreen(
 
                     if (!nowPlayingControlsAtBottom) {
                         mainPlaybackControls()
-                        // v34:辅助行紧跟核心控制,同属一个播放器控制区域
-                        // (70dp 间距 + 行内 10dp padding ≈ 80dp 视觉距离,呼吸但不断开)
-                        Spacer(Modifier.height(70.dp))
+                        // v35:辅助行间距收敛(70→44dp),成为核心控制下方自然延伸的次级操作区;
+                        // 释放的空间整体留在辅助行下方
+                        Spacer(Modifier.height(44.dp))
                         nowPlayingAuxiliaryRow()
                     }
 
