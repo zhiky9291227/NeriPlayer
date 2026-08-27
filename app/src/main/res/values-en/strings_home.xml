@@ -22,6 +22,13 @@
     <string name="home_netease_hot_rank">Hot Songs Chart</string>
     <string name="home_netease_new_rank">New Songs Chart</string>
     <string name="home_netease_radar_playlists">Radar Playlists</string>
+    <string name="home_section_badge_daily">Daily</string>
+    <string name="home_section_badge_private_radar">Radar</string>
+    <string name="home_section_badge_private_fm">FM</string>
+    <string name="home_section_badge_top_soaring">Rising</string>
+    <string name="home_section_badge_top_hot">Hot</string>
+    <string name="home_section_badge_top_new">New</string>
+    <string name="home_section_badge_new_songs">New</string>
     <string name="home_greeting_morning">Good morning</string>
     <string name="home_greeting_afternoon">Good afternoon</string>
     <string name="home_greeting_evening">Good evening</string>

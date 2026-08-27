@@ -69,6 +69,7 @@ import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.DeleteForever
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.History
+import androidx.compose.material.icons.outlined.MusicNote
 import androidx.compose.material.icons.outlined.Radar
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Star
@@ -1034,56 +1035,38 @@ private fun LazyGridScope.addNeteaseSongSection(
     offlineMode: Boolean,
     onOpenFullPlaylist: (() -> Unit)? = null
 ) {
-    val isDailyCarousel = sectionState.source == NeteaseHomeSongSource.DAILY_RECOMMEND &&
-        sectionState.section.items.isNotEmpty()
-
+    // 所有歌曲板块(每日/私人雷达/FM/榜单)统一渲染为封面卡:与雷达歌单同视觉,
+    // 左上角短名角标区分,点击进各自完整列表(onOpenFullPlaylist)
+    val coverUrl = sectionState.section.items.firstOrNull()?.coverUrl
     item(
-        key = registerKey("$sectionKey:header"),
+        key = registerKey("$sectionKey:cover"),
         span = { GridItemSpan(maxLineSpan) }
     ) {
-        SectionHeader(
-            icon = icon,
-            title = stringResource(sectionState.source.titleRes),
-            onClick = onOpenFullPlaylist
-        )
-    }
-    if (isDailyCarousel) {
-        // 每日推荐：横向 Carousel(封面+歌名+歌手),不再用 Hero 大卡独占首页
-        item(
-            key = registerKey("$sectionKey:carousel"),
-            span = { GridItemSpan(maxLineSpan) }
-        ) {
-            DailyRecommendCarousel(
-                songs = sectionState.section.items,
-                onSongClick = onSongClick,
-                favoriteSongs = favoriteSongs,
-                onFavoriteToggle = onFavoriteToggle,
-                onShowSnackbar = onShowSnackbar,
-                offlineMode = offlineMode
-            )
-        }
-    } else {
-        sectionContent(
-            section = sectionState.section,
-            loadingText = loadingText,
-            errorDetail = sectionState.section.error,
-            keyPrefix = sectionKey,
-            registerKey = registerKey
-        ) {
-            item(
-                key = registerKey("$sectionKey:content"),
-                span = { GridItemSpan(maxLineSpan) }
+        if (sectionState.section.items.isNotEmpty()) {
+            val cardWidth = if (currentWindowWidthDp() >= 600.dp) 172.dp else 148.dp
+            LazyRow(
+                modifier = Modifier.fillMaxWidth(),
+                contentPadding = PaddingValues(horizontal = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                ResponsiveSongPagerList(
-                    songs = sectionState.section.items,
-                    startIndex = 0,
-                    onSongClick = onSongClick,
-                    favoriteSongs = favoriteSongs,
-                    onFavoriteToggle = onFavoriteToggle,
-                    onShowSnackbar = onShowSnackbar,
-                    offlineMode = offlineMode
-                )
+                item {
+                    SectionCoverCard(
+                        badgeLabel = neteaseSongSectionBadgeLabel(sectionState.source),
+                        sectionTitle = stringResource(sectionState.source.titleRes),
+                        coverUrl = coverUrl,
+                        onClick = {
+                            onOpenFullPlaylist?.invoke()
+                                ?: onSongClick(sectionState.section.items, 0)
+                        },
+                        offlineMode = offlineMode,
+                        modifier = Modifier.width(cardWidth)
+                    )
+                }
             }
+        } else if (sectionState.section.loading) {
+            SectionLoadingState(loadingText)
+        } else if (!sectionState.section.error.isNullOrBlank()) {
+            SectionErrorState(detail = sectionState.section.error.orEmpty())
         }
     }
 }
@@ -1140,6 +1123,93 @@ private fun LazyGridScope.addNeteasePlaylistSection(
             ) {
                 SectionErrorState(detail = sectionState.section.error.orEmpty())
             }
+        }
+    }
+}
+
+/** 歌曲板块的短名角标(卡片左上角):每日/私人/FM/飙升/热歌/新歌 */
+@Composable
+internal fun neteaseSongSectionBadgeLabel(source: NeteaseHomeSongSource): String = stringResource(
+    when (source) {
+        NeteaseHomeSongSource.DAILY_RECOMMEND -> R.string.home_section_badge_daily
+        NeteaseHomeSongSource.PERSONAL_RADAR -> R.string.home_section_badge_private_radar
+        NeteaseHomeSongSource.PRIVATE_FM -> R.string.home_section_badge_private_fm
+        NeteaseHomeSongSource.TOP_SOARING -> R.string.home_section_badge_top_soaring
+        NeteaseHomeSongSource.TOP_HOT -> R.string.home_section_badge_top_hot
+        NeteaseHomeSongSource.TOP_NEW,
+        NeteaseHomeSongSource.PERSONALIZED_NEW_SONGS -> R.string.home_section_badge_new_songs
+    }
+)
+
+/**
+ * 歌曲板块封面卡:与 RadarPlaylistCard 同视觉(方形封面 + 左上角短名角标 + 下方标题)。
+ * 封面取板块第一首歌的专辑图,点击进入板块完整列表(onOpenFullPlaylist)。
+ */
+@Composable
+private fun SectionCoverCard(
+    badgeLabel: String,
+    sectionTitle: String,
+    coverUrl: String?,
+    onClick: () -> Unit,
+    offlineMode: Boolean,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(1f)
+                .clip(RoundedCornerShape(12.dp))
+                .background(MaterialTheme.colorScheme.secondaryContainer),
+            contentAlignment = Alignment.Center
+        ) {
+            if (!coverUrl.isNullOrBlank()) {
+                AsyncImage(
+                    model = fastScrollableImageRequest(
+                        context = context,
+                        data = coverUrl,
+                        sizePx = 384,
+                        offlineMode = offlineMode
+                    ),
+                    contentDescription = sectionTitle,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
+                )
+            } else {
+                Icon(
+                    imageVector = Icons.Outlined.MusicNote,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                    modifier = Modifier.size(42.dp)
+                )
+            }
+            Text(
+                text = badgeLabel,
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(8.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.86f))
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+
+        Column(modifier = Modifier.padding(top = 6.dp, start = 4.dp, end = 4.dp, bottom = 4.dp)) {
+            Text(
+                text = sectionTitle,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                style = MaterialTheme.typography.titleSmall
+            )
         }
     }
 }
