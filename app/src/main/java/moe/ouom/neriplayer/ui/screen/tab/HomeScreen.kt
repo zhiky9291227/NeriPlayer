@@ -63,6 +63,7 @@ import androidx.compose.material.icons.automirrored.outlined.PlaylistAdd
 import androidx.compose.material.icons.automirrored.outlined.PlaylistPlay
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.outlined.Bolt
 import androidx.compose.material.icons.outlined.ContentCopy
@@ -79,6 +80,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.MaterialTheme
@@ -114,6 +116,7 @@ import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -183,6 +186,7 @@ import moe.ouom.neriplayer.util.media.fastScrollableImageRequest
 import moe.ouom.neriplayer.util.format.formatPlayCount
 import kotlin.math.ceil
 import kotlin.math.min
+import java.time.LocalTime
 import java.util.Locale
 
 private const val HomeContinueHorizontalPaddingDp = 8f
@@ -214,6 +218,20 @@ internal fun shouldShowHomeContinueSection(
     usageLoaded: Boolean,
     hasUsage: Boolean
 ): Boolean = showContinueCard && (!usageLoaded || hasUsage)
+
+/** 首页顶部问候语：按当前时段返回「早上好 / 下午好 / 晚上好」(Apple Music 式) */
+@Composable
+internal fun rememberGreetingTitle(): String {
+    val morning = stringResource(R.string.home_greeting_morning)
+    val afternoon = stringResource(R.string.home_greeting_afternoon)
+    val evening = stringResource(R.string.home_greeting_evening)
+    val hour = remember { LocalTime.now().hour }
+    return when {
+        hour in 5..11 -> morning
+        hour in 12..17 -> afternoon
+        else -> evening
+    }
+}
 
 private fun homeNeteaseSongSectionKey(group: String, source: NeteaseHomeSongSource): String {
     return "home:netease:$group:${source.name.lowercase(Locale.ROOT)}"
@@ -340,14 +358,7 @@ fun HomeScreen(
         }
     }
 
-    val titleOptions = listOf(
-        stringResource(R.string.app_name),
-        stringResource(R.string.home_title_brand_loud),
-        stringResource(R.string.home_title_brand_wave),
-        stringResource(R.string.home_title_brand_call)
-    ).distinct()
-    val titleSeed = rememberSaveable { (0..Int.MAX_VALUE).random() }
-    val appBarTitle = titleOptions[titleSeed % titleOptions.size]
+    val appBarTitle = rememberGreetingTitle()
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(
         state = topAppBarState,
         canScroll = {
@@ -546,7 +557,7 @@ fun HomeScreen(
                         ) {
                             SectionHeader(
                                 icon = Icons.Outlined.History,
-                                title = stringResource(R.string.player_continue)
+                                title = stringResource(R.string.home_recent_play)
                             )
                         }
                         item(
@@ -959,6 +970,257 @@ private fun <T> LazyGridScope.sectionContent(
     }
 }
 
+/**
+ * 每日推荐首曲 Hero 大卡(Apple Music 式 Editorial Card):
+ * 「今日推荐」标签 + 大封面 + 歌名/歌手 + 播放按钮,点击整卡播放该曲。
+ */
+@Composable
+private fun DailyRecommendHeroCard(
+    song: SongItem,
+    isFavorite: Boolean,
+    onPlay: () -> Unit,
+    onFavoriteToggle: (SongItem, Boolean) -> Unit,
+    onShowSnackbar: (String) -> Unit,
+    offlineMode: Boolean,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+    val composeResources = LocalResources.current
+    val clipboard = LocalClipboard.current
+    val scope = rememberCoroutineScope()
+    val coverUrl = rememberSongDisplayCoverUrl(song)
+    var showMenu by remember { mutableStateOf(false) }
+    val neteaseCookies by AppContainer.neteaseCookieRepo.cookieFlow.collectAsState()
+    val canAddToNetease = !offlineMode && neteaseCookies.containsKey("MUSIC_U")
+    var showNeteasePlaylistPicker by remember { mutableStateOf(false) }
+    var neteaseRemotePlaylists by remember {
+        mutableStateOf<List<NeteaseRemotePlaylist>>(emptyList())
+    }
+    var neteasePlaylistsLoading by remember { mutableStateOf(false) }
+    var neteasePlaylistsError by remember { mutableStateOf<String?>(null) }
+    val view = LocalView.current
+
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .combinedClickable(
+                onClick = onPlay,
+                onLongClick = {
+                    view.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
+                    showMenu = true
+                }
+            ),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHighest
+        ),
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Column(Modifier.padding(16.dp)) {
+            Text(
+                text = stringResource(R.string.home_daily_hero_label),
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Spacer(Modifier.height(12.dp))
+            AsyncImage(
+                model = fastScrollableImageRequest(
+                    context = context,
+                    data = coverUrl,
+                    sizePx = 512,
+                    offlineMode = offlineMode
+                ),
+                contentDescription = song.displayName(),
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(1.8f)
+                    .clip(RoundedCornerShape(12.dp))
+            )
+            Spacer(Modifier.height(14.dp))
+            Text(
+                text = song.displayName(),
+                style = MaterialTheme.typography.titleLarge,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+            Spacer(Modifier.height(2.dp))
+            Text(
+                text = song.displayArtist(),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Spacer(Modifier.height(14.dp))
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = stringResource(R.string.home_daily_hero_subtitle),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f)
+                )
+                FilledIconButton(
+                    onClick = onPlay,
+                    modifier = Modifier.size(44.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.PlayArrow,
+                        contentDescription = stringResource(R.string.lyrics_play),
+                        modifier = Modifier.size(26.dp)
+                    )
+                }
+            }
+        }
+    }
+
+    // 长按菜单:与 SongRowMini 能力对齐(接下来播放/队尾/收藏/复制/网易云加歌单)
+    DropdownMenu(
+        expanded = showMenu,
+        onDismissRequest = { showMenu = false }
+    ) {
+        DropdownMenuItem(
+            text = { Text(stringResource(R.string.local_playlist_play_next)) },
+            leadingIcon = {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Outlined.PlaylistPlay,
+                    contentDescription = null
+                )
+            },
+            onClick = {
+                PlayerManager.addToQueueNext(song)
+                showMenu = false
+            }
+        )
+        DropdownMenuItem(
+            text = { Text(stringResource(R.string.playlist_add_to_end)) },
+            leadingIcon = {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Outlined.PlaylistAdd,
+                    contentDescription = null
+                )
+            },
+            onClick = {
+                PlayerManager.addToQueueEnd(song)
+                showMenu = false
+            }
+        )
+        DropdownMenuItem(
+            text = {
+                Text(
+                    stringResource(
+                        if (isFavorite) {
+                            R.string.favorite_remove
+                        } else {
+                            R.string.favorite_add
+                        }
+                    )
+                )
+            },
+            leadingIcon = {
+                Icon(
+                    imageVector = if (isFavorite) {
+                        Icons.Filled.Favorite
+                    } else {
+                        Icons.Outlined.FavoriteBorder
+                    },
+                    contentDescription = null
+                )
+            },
+            onClick = {
+                onFavoriteToggle(song, isFavorite)
+                showMenu = false
+            }
+        )
+        DropdownMenuItem(
+            text = { Text(stringResource(R.string.action_copy_song_info)) },
+            leadingIcon = {
+                Icon(
+                    imageVector = Icons.Outlined.ContentCopy,
+                    contentDescription = null
+                )
+            },
+            onClick = {
+                scope.launch {
+                    clipboard.setClipEntry(
+                        ClipEntry(
+                            ClipData.newPlainText("text", buildHomeSongInfo(song))
+                        )
+                    )
+                    onShowSnackbar(composeResources.getString(R.string.toast_copied))
+                }
+                showMenu = false
+            }
+        )
+        if (canAddToNetease) {
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.netease_add_song_to_playlist)) },
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Outlined.PlaylistAdd,
+                        contentDescription = null
+                    )
+                },
+                onClick = {
+                    showMenu = false
+                    showNeteasePlaylistPicker = true
+                    neteaseRemotePlaylists = emptyList()
+                    neteasePlaylistsError = null
+                    neteasePlaylistsLoading = true
+                    scope.launch(Dispatchers.IO) {
+                        runCatching {
+                            LocalPlaylistRepository.getInstance(context)
+                                .fetchNeteaseRemotePlaylists(AppContainer.neteaseClient)
+                        }.onSuccess { playlists ->
+                            neteasePlaylistsLoading = false
+                            if (playlists.isEmpty()) {
+                                neteasePlaylistsError = composeResources.getString(
+                                    R.string.local_playlist_sync_netease_no_playlists
+                                )
+                            }
+                            neteaseRemotePlaylists = playlists
+                        }.onFailure { error ->
+                            neteasePlaylistsLoading = false
+                            neteasePlaylistsError = error.message?.takeIf(String::isNotBlank)
+                                ?: composeResources.getString(R.string.local_playlist_sync_netease_load_failed)
+                        }
+                    }
+                }
+            )
+        }
+    }
+
+    if (showNeteasePlaylistPicker) {
+        NeteaseSongAddPickerDialog(
+            playlists = neteaseRemotePlaylists,
+            loading = neteasePlaylistsLoading,
+            error = neteasePlaylistsError,
+            onDismiss = { showNeteasePlaylistPicker = false },
+            onPick = { playlist ->
+                showNeteasePlaylistPicker = false
+                scope.launch(Dispatchers.IO) {
+                    val result = LocalPlaylistRepository.getInstance(context)
+                        .syncSongsToNeteasePlaylist(
+                            client = AppContainer.neteaseClient,
+                            targetPlaylistId = playlist.id,
+                            songs = listOf(song)
+                        )
+                    val message = composeResources.getString(
+                        R.string.local_playlist_sync_netease_target,
+                        playlist.name
+                    ) + " " + (result.message ?: composeResources.getString(R.string.netease_add_song_done))
+                    withContext(Dispatchers.Main) {
+                        onShowSnackbar(message)
+                    }
+                }
+            }
+        )
+    }
+}
+
 private fun LazyGridScope.addNeteaseSongSection(
     sectionKey: String,
     registerKey: (String) -> String,
@@ -972,6 +1234,9 @@ private fun LazyGridScope.addNeteaseSongSection(
     offlineMode: Boolean,
     onOpenFullPlaylist: (() -> Unit)? = null
 ) {
+    val isDailyHero = sectionState.source == NeteaseHomeSongSource.DAILY_RECOMMEND &&
+        sectionState.section.items.isNotEmpty()
+
     item(
         key = registerKey("$sectionKey:header"),
         span = { GridItemSpan(maxLineSpan) }
@@ -981,6 +1246,30 @@ private fun LazyGridScope.addNeteaseSongSection(
             title = stringResource(sectionState.source.titleRes),
             onClick = onOpenFullPlaylist
         )
+    }
+    if (isDailyHero) {
+        item(
+            key = registerKey("$sectionKey:hero"),
+            span = { GridItemSpan(maxLineSpan) }
+        ) {
+            DailyRecommendHeroCard(
+                song = sectionState.section.items.first(),
+                isFavorite = favoriteSongs.any { it.sameIdentityAs(sectionState.section.items.first()) },
+                onPlay = { onSongClick(sectionState.section.items, 0) },
+                onFavoriteToggle = onFavoriteToggle,
+                onShowSnackbar = onShowSnackbar,
+                offlineMode = offlineMode
+            )
+        }
+        item(
+            key = registerKey("$sectionKey:continue-header"),
+            span = { GridItemSpan(maxLineSpan) }
+        ) {
+            SectionHeader(
+                icon = icon,
+                title = stringResource(R.string.home_continue_recommend)
+            )
+        }
     }
     sectionContent(
         section = sectionState.section,
@@ -995,6 +1284,7 @@ private fun LazyGridScope.addNeteaseSongSection(
         ) {
             ResponsiveSongPagerList(
                 songs = sectionState.section.items,
+                startIndex = if (isDailyHero) 1 else 0,
                 onSongClick = onSongClick,
                 favoriteSongs = favoriteSongs,
                 onFavoriteToggle = onFavoriteToggle,
@@ -2225,7 +2515,7 @@ private fun ContinueCard(
 
     Column(
         modifier = modifier
-            .clip(RoundedCornerShape(8.dp))
+            .clip(RoundedCornerShape(12.dp))
             .combinedClickable(
                 onClick = onClick,
                 onLongClick = {
@@ -2246,15 +2536,16 @@ private fun ContinueCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(1f)
-                .clip(RoundedCornerShape(8.dp))
+                .clip(RoundedCornerShape(12.dp))
         )
-        Column(modifier = Modifier.padding(6.dp)) {
+        Column(modifier = Modifier.padding(start = 4.dp, end = 4.dp, top = 10.dp, bottom = 4.dp)) {
             Text(
                 text = displayName,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 style = MaterialTheme.typography.titleSmall
             )
+            Spacer(Modifier.height(2.dp))
             Text(
                 text = pluralStringResource(
                     R.plurals.home_song_count_format,
@@ -2307,7 +2598,8 @@ private fun ResponsiveSongPagerList(
     favoriteSongs: List<SongItem>,
     onFavoriteToggle: (SongItem, Boolean) -> Unit,
     onShowSnackbar: (String) -> Unit,
-    offlineMode: Boolean
+    offlineMode: Boolean,
+    startIndex: Int = 0
 ) {
     val widthDp = currentWindowWidthDp().value
     val columns = when {
@@ -2318,7 +2610,8 @@ private fun ResponsiveSongPagerList(
     val rowsPerColumn = 3
     val perPage = (columns * rowsPerColumn).coerceAtLeast(1)
 
-    val pageCount = ceil(songs.size / perPage.toFloat()).toInt().coerceAtLeast(1)
+    val visibleCount = (songs.size - startIndex).coerceAtLeast(0)
+    val pageCount = ceil(visibleCount / perPage.toFloat()).toInt().coerceAtLeast(1)
     val pagerState = rememberPagerState(pageCount = { pageCount })
 
     HorizontalPager(
@@ -2327,8 +2620,8 @@ private fun ResponsiveSongPagerList(
             .fillMaxWidth()
             .padding(horizontal = 8.dp)
     ) { page ->
-        val start = page * perPage
-        val end = min(start + perPage, songs.size)
+        val pageStart = page * perPage
+        val pageEnd = min(pageStart + perPage, visibleCount)
 
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -2340,8 +2633,9 @@ private fun ResponsiveSongPagerList(
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     for (rowIndex in 0 until rowsPerColumn) {
-                        val absoluteIndex = start + (columnIndex * rowsPerColumn + rowIndex)
-                        if (absoluteIndex < end) {
+                        val offsetInPage = pageStart + (columnIndex * rowsPerColumn + rowIndex)
+                        val absoluteIndex = startIndex + offsetInPage
+                        if (offsetInPage < pageEnd && absoluteIndex < songs.size) {
                             val song = songs[absoluteIndex]
                             SongRowMini(
                                 index = absoluteIndex + 1,

@@ -22,6 +22,13 @@
     <string name="home_netease_hot_rank">热歌榜</string>
     <string name="home_netease_new_rank">新歌榜</string>
     <string name="home_netease_radar_playlists">雷达歌单</string>
+    <string name="home_greeting_morning">早上好</string>
+    <string name="home_greeting_afternoon">下午好</string>
+    <string name="home_greeting_evening">晚上好</string>
+    <string name="home_recent_play">最近播放</string>
+    <string name="home_daily_hero_label">今日推荐</string>
+    <string name="home_daily_hero_subtitle">为你挑选的一首歌</string>
+    <string name="home_continue_recommend">继续为你推荐</string>
     <string name="home_netease_radar_badge">雷达</string>
     <string name="home_netease_daily_playlists">每日推荐歌单</string>
     <string name="home_netease_high_quality_playlists">精品歌单</string>
