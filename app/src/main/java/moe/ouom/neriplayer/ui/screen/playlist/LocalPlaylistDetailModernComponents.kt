@@ -1552,7 +1552,14 @@ private fun PlaylistCompactIconButton(
         modifier = Modifier
             .size(PlaylistCompactActionButtonSize)
             .clip(RoundedCornerShape(22.dp))
-            .background(containerColor)
+            .then(
+                // 权重分层:仅激活/按下时有浅底,平时是轻量裸 icon,突出「全部播放」主按钮
+                if (active) {
+                    Modifier.background(containerColor)
+                } else {
+                    Modifier
+                }
+            )
     ) {
         Icon(
             imageVector = imageVector,
