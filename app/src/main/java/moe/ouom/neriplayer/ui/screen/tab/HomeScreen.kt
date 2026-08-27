@@ -480,7 +480,10 @@ fun HomeScreen(
                         text = appBarTitle,
                         style = MaterialTheme.typography.headlineMedium.copy(
                             fontWeight = FontWeight.ExtraBold
-                        )
+                        ),
+                        // 与板块标题对齐:pageHorizontalPadding(16) + gridContentPadding(12) + start(4) = 32dp,
+                        // TopAppBar 自带 16dp,再补 16dp
+                        modifier = Modifier.padding(start = 16.dp)
                     )
                 },
                 actions = {
