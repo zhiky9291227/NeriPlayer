@@ -90,8 +90,8 @@ import kotlin.math.exp
 import kotlin.math.sign
 
 object NeriMiniPlayerDefaults {
-    val Height = 60.dp
-    internal val ContentVerticalPadding = 6.dp
+    val Height = 56.dp
+    internal val ContentVerticalPadding = 5.dp
 }
 
 private const val MINI_PLAYER_COVER_CLEAR_DELAY_MS = 900L
@@ -431,7 +431,7 @@ fun NeriMiniPlayer(
                 ) {
                 Box(
                     modifier = Modifier
-                        .size(40.dp)
+                        .size(36.dp)
                         .background(
                             color = if (displayedCoverUrl != null || requestedCoverUrl != null) {
                                 Color.Transparent

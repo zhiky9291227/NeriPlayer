@@ -2258,8 +2258,15 @@ private fun NeriAppContent(
         sampledCoverUrl = coverSeed?.coverUrl,
         sampledSeedHex = coverSeed?.seedHex
     )
+    // 取色是异步的:切歌后新封面取色完成前,继续沿用上一首的专辑色,
+    // 避免主题先闪回默认种子色(蓝)再跳到新专辑色(切歌闪蓝问题)
+    val lastCoverSeedHex = remember { mutableStateOf<String?>(null) }
+    if (activeCoverSeedHex != null) {
+        lastCoverSeedHex.value = activeCoverSeedHex
+    }
+    val stableActiveCoverSeedHex = activeCoverSeedHex ?: lastCoverSeedHex.value
         val effectiveSeedHex = if (dynamicColorEnabled) {
-            activeCoverSeedHex ?: themeSeedColor
+            stableActiveCoverSeedHex ?: themeSeedColor
         } else {
             themeSeedColor
         }

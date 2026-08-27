@@ -917,6 +917,7 @@ private fun NowPlayingQueueRow(
                                     imageVector = Icons.AutoMirrored.Outlined.PlaylistAdd,
                                     contentDescription = null
                                 )
+                                    ToolbarIconLabel(stringResource(R.string.playlist_add_to))
                             },
                             onClick = {
                                 onAddToEnd()
@@ -2953,26 +2954,11 @@ fun NowPlayingScreen(
                                 (controlsLayout.primaryButtonSize.value /
                                     primaryControlButtonSize.value)
                             ).coerceAtLeast(18.dp)
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(controlsLayout.spacing),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            HapticIconButton(
-                                onClick = { PlayerManager.setShuffle(!shuffleEnabled) },
-                                modifier = Modifier.size(controlsLayout.secondaryButtonSize)
-                            ) {
-                                Icon(
-                                    Icons.Outlined.Shuffle,
-                                    contentDescription = stringResource(R.string.player_shuffle),
-                                    modifier = Modifier.size(secondaryIconSize),
-                                    tint = if (shuffleEnabled) {
-                                        nowPlayingActiveIconColor
-                                    } else {
-                                        LocalContentColor.current
-                                    }
-                                )
-                            }
-
                             HapticIconButton(
                                 onClick = { PlayerManager.previous() },
                                 modifier = Modifier
@@ -3033,10 +3019,31 @@ fun NowPlayingScreen(
                                     modifier = Modifier.size(secondaryIconSize)
                                 )
                             }
-
+                        }
+                        // 第二层:随机/循环降为小控件(播放核心区第一层只留 上一首/播放/下一首)
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(28.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(top = 2.dp)
+                        ) {
+                            HapticIconButton(
+                                onClick = { PlayerManager.setShuffle(!shuffleEnabled) },
+                                modifier = Modifier.size(34.dp)
+                            ) {
+                                Icon(
+                                    Icons.Outlined.Shuffle,
+                                    contentDescription = stringResource(R.string.player_shuffle),
+                                    modifier = Modifier.size(18.dp),
+                                    tint = if (shuffleEnabled) {
+                                        nowPlayingActiveIconColor
+                                    } else {
+                                        LocalContentColor.current.copy(alpha = 0.55f)
+                                    }
+                                )
+                            }
                             HapticIconButton(
                                 onClick = { PlayerManager.cycleRepeatMode() },
-                                modifier = Modifier.size(controlsLayout.secondaryButtonSize)
+                                modifier = Modifier.size(34.dp)
                             ) {
                                 Icon(
                                     imageVector = if (repeatMode == Player.REPEAT_MODE_ONE) {
@@ -3045,14 +3052,15 @@ fun NowPlayingScreen(
                                         Icons.Outlined.Repeat
                                     },
                                     contentDescription = stringResource(R.string.player_repeat),
-                                    modifier = Modifier.size(secondaryIconSize),
+                                    modifier = Modifier.size(18.dp),
                                     tint = if (repeatMode != Player.REPEAT_MODE_OFF) {
                                         nowPlayingActiveIconColor
                                     } else {
-                                        LocalContentColor.current
+                                        LocalContentColor.current.copy(alpha = 0.55f)
                                     }
                                 )
                             }
+                        }
                         }
                     }
                 }
@@ -3113,11 +3121,12 @@ fun NowPlayingScreen(
                             )
                         }
 
-                        // 标题 - 居中
+                        // 标题 - 居中(v32 顶栏简化:降为小字低存在感,封面才是中心)
                         if (showNowPlayingTitle) {
                             Text(
                                 text = stringResource(R.string.player_now_playing),
-                                style = MaterialTheme.typography.titleLarge,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier.align(Alignment.Center)
@@ -3218,8 +3227,8 @@ fun NowPlayingScreen(
                                 maxHeight * 0.42f
                             )
                             isLandscape -> minOf(windowWidthDp * 0.45f, maxHeight * 0.5f, maxWidth)
-                            // 大封面占主体：竖屏下尽量占满宽度
-                            else -> minOf(maxWidth * 0.92f, maxHeight * 0.62f)
+                            // 封面是主视觉但不独占全页:留出紧凑播放核心区的呼吸空间
+                            else -> minOf(maxWidth * 0.82f, maxHeight * 0.56f)
                         }
                         val coverRequestSizePx = with(LocalDensity.current) {
                             coverSize.roundToPx().coerceAtLeast(256)
@@ -3247,7 +3256,7 @@ fun NowPlayingScreen(
                                         scaleX = coverPlayingScale
                                         scaleY = coverPlayingScale
                                     }
-                                    .clip(RoundedCornerShape(24.dp))
+                                    .clip(RoundedCornerShape(28.dp))
                                     .background(
                                         color = if (currentCoverUrl != null) {
                                             Color.Transparent
@@ -3345,7 +3354,7 @@ fun NowPlayingScreen(
                         }
                     }
 
-                    Spacer(Modifier.height(16.dp))
+                    Spacer(Modifier.height(12.dp))
 
                     // 标题
                     AnimatedVisibility(
@@ -3431,9 +3440,9 @@ fun NowPlayingScreen(
                     }
 
                     if (!nowPlayingProgressAtBottom) {
-                        Spacer(Modifier.height(12.dp))
+                        Spacer(Modifier.height(10.dp))
                         nowPlayingProgressSection()
-                        Spacer(Modifier.height(if (useWideLandscapeLayout) 14.dp else 10.dp))
+                        Spacer(Modifier.height(if (useWideLandscapeLayout) 12.dp else 8.dp))
                     }
 
                     if (!nowPlayingControlsAtBottom) {
@@ -3450,7 +3459,8 @@ fun NowPlayingScreen(
                             previewPositionOverrideMs = previewPositionOverrideMs,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .weight(8f),
+                                .weight(8f)
+                                .heightIn(max = 168.dp),
                             textColor = MaterialTheme.colorScheme.onBackground,
                             fontSize = scaledLyricFontSize(18f, coverLyricFontScale).sp,
                             translationFontSize = scaledLyricFontSize(14f, coverTranslationFontScale).sp,
@@ -3562,6 +3572,7 @@ fun NowPlayingScreen(
                                         contentDescription = stringResource(R.string.playlist_queue),
                                         modifier = Modifier.size(toolbarLayout.iconSize)
                                     )
+                                    ToolbarIconLabel(stringResource(R.string.playlist_queue))
                                 }
 
                                 // 定时器按钮
@@ -3583,6 +3594,7 @@ fun NowPlayingScreen(
                                         },
                                         modifier = Modifier.size(toolbarLayout.iconSize)
                                     )
+                                    ToolbarIconLabel(stringResource(R.string.sleep_timer_short))
                                 }
 
                                 // 音量按钮 (根据设备显示不同图标, 居中)
@@ -3631,6 +3643,7 @@ fun NowPlayingScreen(
                                             },
                                             modifier = Modifier.size(toolbarLayout.iconSize)
                                         )
+                                    ToolbarIconLabel(stringResource(R.string.lyrics_title))
                                     }
                                 }
 
@@ -4555,9 +4568,10 @@ private fun buildNowPlayingProgressInfoSegments(
     val segments = mutableListOf<NowPlayingProgressInfoSegment>()
     val qualityLabel = audioInfo.qualityLabel
     if (showQualitySwitch && !qualityLabel.isNullOrBlank()) {
+        // 音质信息降级:不再用主题色高亮(避免视觉权重过高),与其他信息同级展示
         segments += NowPlayingProgressInfoSegment(
             label = qualityLabel,
-            highlighted = true
+            highlighted = false
         )
     }
     if (shouldShowPlaybackSpeedBadge(playbackSpeed)) {
@@ -4572,6 +4586,18 @@ private fun buildNowPlayingProgressInfoSegments(
         segments += NowPlayingProgressInfoSegment(label = specLabel)
     }
     return segments
+}
+
+/** 底部工具栏图标的 10sp 文字说明(信息架构消歧) */
+@Composable
+private fun ToolbarIconLabel(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.72f),
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis
+    )
 }
 
 private fun shouldShowPlaybackSpeedBadge(playbackSpeed: Float): Boolean {
