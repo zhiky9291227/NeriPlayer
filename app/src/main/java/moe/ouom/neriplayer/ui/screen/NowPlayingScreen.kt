@@ -3044,6 +3044,98 @@ fun NowPlayingScreen(
                     )
                 }
 
+                // 辅助操作行(v34):随机/循环/歌词/队列,视觉上紧跟核心控制、
+                // 同属一个播放器控制区域;无背景无 dock 无文字。
+                // 不再叠加 navigationBars insets(外层 contentModifier 已含),避免与页底双重留白
+                val nowPlayingAuxiliaryRow: @Composable () -> Unit = {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 32.dp, vertical = 10.dp),
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // 随机播放
+                        HapticIconButton(
+                            onClick = { PlayerManager.setShuffle(!shuffleEnabled) },
+                            modifier = Modifier.size(44.dp)
+                        ) {
+                            Icon(
+                                Icons.Outlined.Shuffle,
+                                contentDescription = stringResource(R.string.player_shuffle),
+                                tint = if (shuffleEnabled) {
+                                    nowPlayingActiveIconColor
+                                } else {
+                                    LocalContentColor.current.copy(alpha = 0.55f)
+                                },
+                                modifier = Modifier.size(nowPlayingToolbarIconSize)
+                            )
+                        }
+                        // 循环模式
+                        HapticIconButton(
+                            onClick = { PlayerManager.cycleRepeatMode() },
+                            modifier = Modifier.size(44.dp)
+                        ) {
+                            Icon(
+                                imageVector = if (repeatMode == Player.REPEAT_MODE_ONE) {
+                                    Icons.Filled.RepeatOne
+                                } else {
+                                    Icons.Outlined.Repeat
+                                },
+                                contentDescription = stringResource(R.string.player_repeat),
+                                tint = if (repeatMode != Player.REPEAT_MODE_OFF) {
+                                    nowPlayingActiveIconColor
+                                } else {
+                                    LocalContentColor.current.copy(alpha = 0.55f)
+                                },
+                                modifier = Modifier.size(nowPlayingToolbarIconSize)
+                            )
+                        }
+                        // 歌词
+                        HapticIconButton(
+                            onClick = { onShowLyricsScreenChange(!showLyricsScreen) },
+                            enabled = lyrics.isNotEmpty(),
+                            modifier = Modifier
+                                .sharedBounds(
+                                    rememberSharedContentState(key = "btn_lyrics"),
+                                    animatedVisibilityScope = this@AnimatedContent,
+                                    enter = EnterTransition.None,
+                                    exit = ExitTransition.None,
+                                ).zIndex(1f)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.LibraryMusic,
+                                contentDescription = stringResource(R.string.lyrics_title),
+                                tint = if (lyrics.isEmpty()) {
+                                    LocalContentColor.current.copy(alpha = 0.38f)
+                                } else if (showLyricsScreen) {
+                                    nowPlayingActiveIconColor
+                                } else {
+                                    LocalContentColor.current
+                                },
+                                modifier = Modifier.size(nowPlayingToolbarIconSize)
+                            )
+                        }
+                        // 播放队列
+                        HapticIconButton(
+                            onClick = { showQueueSheet = true },
+                            modifier = Modifier
+                                .sharedBounds(
+                                    rememberSharedContentState(key = "btn_queue"),
+                                    animatedVisibilityScope = this@AnimatedContent,
+                                    enter = EnterTransition.None,
+                                    exit = ExitTransition.None,
+                                ).zIndex(1f)
+                        ) {
+                            Icon(
+                                Icons.AutoMirrored.Outlined.QueueMusic,
+                                contentDescription = stringResource(R.string.playlist_queue),
+                                modifier = Modifier.size(nowPlayingToolbarIconSize)
+                            )
+                        }
+                    }
+                }
+
                 // 主列内容
                 val mainColumnContent: @Composable ColumnScope.() -> Unit = {
                     // 顶部栏
@@ -3402,10 +3494,13 @@ fun NowPlayingScreen(
 
                     if (!nowPlayingControlsAtBottom) {
                         mainPlaybackControls()
+                        // v34:辅助行紧跟核心控制,同属一个播放器控制区域
+                        // (70dp 间距 + 行内 10dp padding ≈ 80dp 视觉距离,呼吸但不断开)
+                        Spacer(Modifier.height(70.dp))
+                        nowPlayingAuxiliaryRow()
                     }
 
-
-                    // 将下面的内容推到底部, 平板横屏也保持贴近底部的手感
+                    // 剩余空间整体沉到辅助行下方,形成连续收底的留白
                     Spacer(modifier = Modifier.weight(1f))
 
                     if (nowPlayingControlsAtBottom) {
@@ -3414,99 +3509,9 @@ fun NowPlayingScreen(
                             Spacer(Modifier.height(if (useWideLandscapeLayout) 14.dp else 10.dp))
                         }
                         mainPlaybackControls()
-                        Spacer(Modifier.height(4.dp))
-                    }
-
-                    // 辅助操作行(v33):随机/循环/歌词/队列 四个统一图标,
-                    // 无背景无 dock 无文字,SpaceEvenly 水平排列;
-                    // 与核心控制之间有明确层级间距;定时/添加退到右上角更多菜单
-                    Spacer(Modifier.height(28.dp))
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .windowInsetsPadding(WindowInsets.navigationBars)
-                            .padding(horizontal = 32.dp, vertical = 10.dp),
-                        horizontalArrangement = Arrangement.SpaceEvenly,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        // 随机播放
-                        HapticIconButton(
-                            onClick = { PlayerManager.setShuffle(!shuffleEnabled) },
-                            modifier = Modifier.size(44.dp)
-                        ) {
-                            Icon(
-                                Icons.Outlined.Shuffle,
-                                contentDescription = stringResource(R.string.player_shuffle),
-                                tint = if (shuffleEnabled) {
-                                    nowPlayingActiveIconColor
-                                } else {
-                                    LocalContentColor.current.copy(alpha = 0.55f)
-                                },
-                                modifier = Modifier.size(nowPlayingToolbarIconSize)
-                            )
-                        }
-                        // 循环模式
-                        HapticIconButton(
-                            onClick = { PlayerManager.cycleRepeatMode() },
-                            modifier = Modifier.size(44.dp)
-                        ) {
-                            Icon(
-                                imageVector = if (repeatMode == Player.REPEAT_MODE_ONE) {
-                                    Icons.Filled.RepeatOne
-                                } else {
-                                    Icons.Outlined.Repeat
-                                },
-                                contentDescription = stringResource(R.string.player_repeat),
-                                tint = if (repeatMode != Player.REPEAT_MODE_OFF) {
-                                    nowPlayingActiveIconColor
-                                } else {
-                                    LocalContentColor.current.copy(alpha = 0.55f)
-                                },
-                                modifier = Modifier.size(nowPlayingToolbarIconSize)
-                            )
-                        }
-                        // 歌词
-                        HapticIconButton(
-                            onClick = { onShowLyricsScreenChange(!showLyricsScreen) },
-                            enabled = lyrics.isNotEmpty(),
-                            modifier = Modifier
-                                .sharedBounds(
-                                    rememberSharedContentState(key = "btn_lyrics"),
-                                    animatedVisibilityScope = this@AnimatedContent,
-                                    enter = EnterTransition.None,
-                                    exit = ExitTransition.None,
-                                ).zIndex(1f)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Outlined.LibraryMusic,
-                                contentDescription = stringResource(R.string.lyrics_title),
-                                tint = if (lyrics.isEmpty()) {
-                                    LocalContentColor.current.copy(alpha = 0.38f)
-                                } else if (showLyricsScreen) {
-                                    nowPlayingActiveIconColor
-                                } else {
-                                    LocalContentColor.current
-                                },
-                                modifier = Modifier.size(nowPlayingToolbarIconSize)
-                            )
-                        }
-                        // 播放队列
-                        HapticIconButton(
-                            onClick = { showQueueSheet = true },
-                            modifier = Modifier
-                                .sharedBounds(
-                                    rememberSharedContentState(key = "btn_queue"),
-                                    animatedVisibilityScope = this@AnimatedContent,
-                                    enter = EnterTransition.None,
-                                    exit = ExitTransition.None,
-                                ).zIndex(1f)
-                        ) {
-                            Icon(
-                                Icons.AutoMirrored.Outlined.QueueMusic,
-                                contentDescription = stringResource(R.string.playlist_queue),
-                                modifier = Modifier.size(nowPlayingToolbarIconSize)
-                            )
-                        }
+                        // v34:贴底模式下辅助行仍收在页底(手势区上方)
+                        Spacer(Modifier.height(12.dp))
+                        nowPlayingAuxiliaryRow()
                     }
                 }
 
