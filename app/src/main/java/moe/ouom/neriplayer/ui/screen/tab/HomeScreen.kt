@@ -938,25 +938,7 @@ private fun <T> LazyGridScope.sectionContent(
     content: LazyGridScope.() -> Unit
 ) {
     when {
-        section.items.isNotEmpty() -> {
-            item(
-                key = registerKey("$keyPrefix:content"),
-                span = { GridItemSpan(maxLineSpan) }
-            ) {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerHighest
-                    ),
-                    shape = RoundedCornerShape(12.dp),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-                ) {
-                    Box(Modifier.padding(12.dp).fillMaxWidth()) {
-                        this@sectionContent.content()
-                    }
-                }
-            }
-        }
+        section.items.isNotEmpty() -> content()
         section.loading -> {
             item(
                 key = registerKey("$keyPrefix:loading"),
