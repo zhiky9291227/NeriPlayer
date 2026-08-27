@@ -29,6 +29,7 @@
     <string name="home_section_badge_top_hot">热歌</string>
     <string name="home_section_badge_top_new">新歌</string>
     <string name="home_section_badge_new_songs">新歌</string>
+    <string name="home_song_shelf_title">为你推荐</string>
     <string name="home_greeting_morning">早上好</string>
     <string name="home_greeting_afternoon">下午好</string>
     <string name="home_greeting_evening">晚上好</string>
