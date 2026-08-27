@@ -3197,6 +3197,7 @@ fun NowPlayingScreen(
                                     currentPlaybackAudioInfo = currentPlaybackAudioInfo,
                                     onShowQualitySwitch = { showQualitySwitchDialog = true },
                                     onAddToNeteasePlaylist = { showNeteasePlaylistPicker = true },
+                                    onShowVolume = { showVolumeSheet = true },
                                     offlineMode = offlineMode
                                 )
                             }
@@ -3221,7 +3222,7 @@ fun NowPlayingScreen(
                             )
                             isLandscape -> minOf(windowWidthDp * 0.45f, maxHeight * 0.5f, maxWidth)
                             // 封面是主视觉但不独占全页:留出紧凑播放核心区的呼吸空间
-                            else -> minOf(maxWidth * 0.82f, maxHeight * 0.56f)
+                            else -> minOf(maxWidth * 0.85f, maxHeight * 0.56f)
                         }
                         val coverRequestSizePx = with(LocalDensity.current) {
                             coverSize.roundToPx().coerceAtLeast(256)
@@ -3442,47 +3443,6 @@ fun NowPlayingScreen(
                         mainPlaybackControls()
                     }
 
-                    // 手机/竖屏, 内嵌迷你歌词
-                    if (!useWideLandscapeLayout && showCoverPageLyrics && lyrics.isNotEmpty()) {
-                        Spacer(Modifier.weight(1f))
-
-                        NowPlayingLyricsPane(
-                            lyrics = plainLyrics,
-                            playbackSessionKey = currentSong?.stableKey(),
-                            previewPositionOverrideMs = previewPositionOverrideMs,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .weight(8f)
-                                .heightIn(max = 168.dp)
-                                .padding(bottom = 12.dp),
-                            textColor = MaterialTheme.colorScheme.onBackground,
-                            fontSize = scaledLyricFontSize(18f, coverLyricFontScale).sp,
-                            translationFontSize = scaledLyricFontSize(14f, coverTranslationFontScale).sp,
-                            visualSpec = LyricVisualSpec(
-                                // 内嵌歌词层级增强(用户清单第七条):
-                                // 当前行更突出、邻行压得更低,与底栏拉开层级
-                                activeScale = 1.15f,
-                                nearScale = 0.86f,
-                                farScale = 0.82f
-                            ),
-                            lyricOffsetMs = totalOffset,
-                            lyricBlurEnabled = lyricBlurEnabled,
-                            lyricBlurAmount = lyricBlurAmount,
-                            isPlaying = isPlaying && previewPositionOverrideMs == null,
-                            playbackSpeed = playbackSoundState.speed,
-                            onLyricClick = { entry ->
-                                seekToLyricSafely(
-                                    positionMs = entry.startTimeMs,
-                                    playbackDurationMs = durationMs,
-                                    songDurationMs = currentSong?.durationMs ?: 0L
-                                )
-                            },
-                            onLyricLongClick = { entry -> lyricShareInitialLine = entry },
-                            showEmbeddedTranslations = showLyricTranslation &&
-                                !usePhoneticTranslation,
-                            translatedLyrics = if (showLyricTranslation) secondaryPlainLyrics else null
-                        )
-                    }
 
                     // 将下面的内容推到底部, 平板横屏也保持贴近底部的手感
                     Spacer(modifier = Modifier.weight(1f))
@@ -3496,191 +3456,96 @@ fun NowPlayingScreen(
                         Spacer(Modifier.height(4.dp))
                     }
 
-                    // 底部操作栏 (固定在底部)
-                    Column(
-                        modifier = if (useWideLandscapeLayout) {
-                            Modifier
-                                .fillMaxWidth(0.9f)
-                                .windowInsetsPadding(WindowInsets.navigationBars)
-                        } else {
-                            Modifier
-                                .fillMaxWidth()
-                                .windowInsetsPadding(WindowInsets.navigationBars)
-                                .padding(
-                                    horizontal = if (useCompactPortraitLayout) 4.dp else 16.dp,
-                                    vertical = 8.dp
-                                )
-                                .padding(bottom = if (useNowPlayingToolbarDock) 2.dp else 0.dp)
-                        },
-                        horizontalAlignment = Alignment.CenterHorizontally
+                    // 辅助操作行(v32):歌词/队列/定时/添加 四个轻量图标,
+                    // 无背景无 dock,SpaceEvenly 水平排列;低频功能(音质/歌曲信息/分享)在右上角更多菜单
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .windowInsetsPadding(WindowInsets.navigationBars)
+                            .padding(horizontal = 32.dp, vertical = 10.dp),
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        val toolbarContainerModifier = Modifier.fillMaxWidth()
-                        val toolbarContent: @Composable () -> Unit = {
-                            BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-                                val preferredToolbarPadding = when {
-                                    useCompactPortraitLayout -> 0.dp
-                                    useNowPlayingToolbarDock || useWideLandscapeLayout -> 18.dp
-                                    else -> 6.dp
-                                }
-                                val toolbarLayout = resolvePlaybackActionToolbarLayout(
-                                    availableWidth = maxWidth,
-                                    preferredHorizontalPadding = preferredToolbarPadding,
-                                    defaultIconSize = nowPlayingToolbarIconSize,
-                                    preferredMinimumTouchTarget =
-                                        nowPlayingToolbarMinimumTouchTarget
-                                )
-                                CompositionLocalProvider(
-                                    LocalMinimumInteractiveComponentSize provides
-                                        toolbarLayout.minimumInteractiveComponentSize
-                                ) {
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(
-                                                horizontal = toolbarLayout.horizontalPadding,
-                                                vertical = if (useNowPlayingToolbarDock || useWideLandscapeLayout) {
-                                                    12.dp
-                                                } else {
-                                                    8.dp
-                                                }
-                                            ),
-                                        horizontalArrangement = when {
-                                            toolbarLayout.useEqualWidthSlots -> Arrangement.Start
-                                            useWideLandscapeLayout || useNowPlayingToolbarDock -> {
-                                                Arrangement.SpaceEvenly
-                                            }
-                                            else -> Arrangement.SpaceBetween
-                                        },
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        val toolbarActionModifier = if (toolbarLayout.useEqualWidthSlots) {
-                                            Modifier.weight(1f)
-                                        } else {
-                                            Modifier
-                                        }
-                                // 播放队列
-                                HapticIconButton(onClick = { showQueueSheet = true },
-                                    modifier = toolbarActionModifier
-                                        .sharedBounds(
-                                        rememberSharedContentState(key = "btn_queue"),
-                                            animatedVisibilityScope = this@AnimatedContent,
-                                            enter = EnterTransition.None,
-                                            exit = ExitTransition.None,
-                                        ).zIndex(1f)) {
-                                    Icon(
-                                        Icons.AutoMirrored.Outlined.QueueMusic,
-                                        contentDescription = stringResource(R.string.playlist_queue),
-                                        modifier = Modifier.size(toolbarLayout.iconSize)
-                                    )
-                                    ToolbarIconLabel(stringResource(R.string.playlist_queue))
-                                }
-
-                                // 定时器按钮
-                                HapticIconButton(onClick = { showSleepTimerDialog = true },
-                                    modifier = toolbarActionModifier
-                                    .sharedBounds(
-                                        rememberSharedContentState(key = "btn_timer"),
-                                        animatedVisibilityScope = this@AnimatedContent,
-                                        enter = EnterTransition.None,
-                                        exit = ExitTransition.None,
-                                    ).zIndex(1f)) {
-                                    Icon(
-                                        Icons.Outlined.Timer,
-                                        contentDescription = stringResource(R.string.sleep_timer_short),
-                                        tint = if (sleepTimerState.isActive) {
-                                            nowPlayingActiveIconColor
-                                        } else {
-                                            LocalContentColor.current
-                                        },
-                                        modifier = Modifier.size(toolbarLayout.iconSize)
-                                    )
-                                    ToolbarIconLabel(stringResource(R.string.sleep_timer_short))
-                                }
-
-                                // 音量按钮 (根据设备显示不同图标, 居中)
-                                val audioDeviceInfo = rememberAudioDeviceInfo()
-                                HapticIconButton(onClick = { showVolumeSheet = true },
-                                    modifier = toolbarActionModifier
-                                        .sharedBounds(
-                                        rememberSharedContentState(key = "btn_volume"),
-                                        animatedVisibilityScope = this@AnimatedContent,
-                                        enter = EnterTransition.None,
-                                        exit = ExitTransition.None,
-                                    ).zIndex(1f)
-                                ) {
-                                    Icon(
-                                        audioDeviceInfo.second,
-                                        contentDescription = audioDeviceInfo.first,
-                                        modifier = Modifier.size(toolbarLayout.iconSize)
-                                    )
-                                }
-
-                                // 歌词按钮
-                                HapticIconButton(
-                                    onClick = { onShowLyricsScreenChange(!showLyricsScreen) },
-                                    enabled = lyrics.isNotEmpty(),
-                                    modifier = toolbarActionModifier
-                                        .sharedBounds(
-                                            rememberSharedContentState(key = "btn_lyrics"),
-                                            animatedVisibilityScope = this@AnimatedContent,
-                                            enter = EnterTransition.None,
-                                            exit = ExitTransition.None,
-                                        ).zIndex(1f)
-                                ) {
-                                    AnimatedContent(
-                                        targetState = showLyricsScreen,
-                                        label = "lyrics_icon"
-                                    ) { isShowingLyrics ->
-                                        Icon(
-                                            imageVector = if (isShowingLyrics) Icons.Outlined.LibraryMusic else Icons.Outlined.LibraryMusic,
-                                            contentDescription = stringResource(R.string.lyrics_title),
-                                            tint = if (lyrics.isEmpty()) {
-                                                LocalContentColor.current.copy(alpha = 0.38f)
-                                            } else if (isShowingLyrics) {
-                                                nowPlayingActiveIconColor
-                                            } else {
-                                                LocalContentColor.current
-                                            },
-                                            modifier = Modifier.size(toolbarLayout.iconSize)
-                                        )
-                                    ToolbarIconLabel(stringResource(R.string.lyrics_title))
-                                    }
-                                }
-
-                                // 添加到歌单
-                                HapticIconButton(onClick = { showAddSheet = true },
-                                    modifier = toolbarActionModifier
-                                        .sharedBounds(
-                                            rememberSharedContentState(key = "btn_add"),
-                                            animatedVisibilityScope = this@AnimatedContent,
-                                            enter = EnterTransition.None,
-                                            exit = ExitTransition.None,
-                                        ).zIndex(1f)
-                                ) {
-                                    Icon(
-                                        Icons.AutoMirrored.Outlined.PlaylistAdd,
-                                        contentDescription = stringResource(R.string.playlist_add_to),
-                                        modifier = Modifier.size(toolbarLayout.iconSize)
-                                    )
-                                }
-                                    }
-                                }
-                            }
+                        // 歌词
+                        HapticIconButton(
+                            onClick = { onShowLyricsScreenChange(!showLyricsScreen) },
+                            enabled = lyrics.isNotEmpty(),
+                            modifier = Modifier
+                                .sharedBounds(
+                                    rememberSharedContentState(key = "btn_lyrics"),
+                                    animatedVisibilityScope = this@AnimatedContent,
+                                    enter = EnterTransition.None,
+                                    exit = ExitTransition.None,
+                                ).zIndex(1f)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.LibraryMusic,
+                                contentDescription = stringResource(R.string.lyrics_title),
+                                tint = if (lyrics.isEmpty()) {
+                                    LocalContentColor.current.copy(alpha = 0.38f)
+                                } else if (showLyricsScreen) {
+                                    nowPlayingActiveIconColor
+                                } else {
+                                    LocalContentColor.current
+                                },
+                                modifier = Modifier.size(nowPlayingToolbarIconSize)
+                            )
                         }
-
-                        if (useNowPlayingToolbarDock) {
-                            Surface(
-                                modifier = toolbarContainerModifier,
-                                shape = RoundedCornerShape(28.dp),
-                                // 底栏轻量化:背景几乎透明,只留极弱的容器暗示
-                                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.14f),
-                                tonalElevation = 0.dp,
-                                shadowElevation = 0.dp
-                            ) {
-                                toolbarContent()
-                            }
-                        } else {
-                            toolbarContent()
+                        // 播放队列
+                        HapticIconButton(
+                            onClick = { showQueueSheet = true },
+                            modifier = Modifier
+                                .sharedBounds(
+                                    rememberSharedContentState(key = "btn_queue"),
+                                    animatedVisibilityScope = this@AnimatedContent,
+                                    enter = EnterTransition.None,
+                                    exit = ExitTransition.None,
+                                ).zIndex(1f)
+                        ) {
+                            Icon(
+                                Icons.AutoMirrored.Outlined.QueueMusic,
+                                contentDescription = stringResource(R.string.playlist_queue),
+                                modifier = Modifier.size(nowPlayingToolbarIconSize)
+                            )
+                        }
+                        // 睡眠定时
+                        HapticIconButton(
+                            onClick = { showSleepTimerDialog = true },
+                            modifier = Modifier
+                                .sharedBounds(
+                                    rememberSharedContentState(key = "btn_timer"),
+                                    animatedVisibilityScope = this@AnimatedContent,
+                                    enter = EnterTransition.None,
+                                    exit = ExitTransition.None,
+                                ).zIndex(1f)
+                        ) {
+                            Icon(
+                                Icons.Outlined.Timer,
+                                contentDescription = stringResource(R.string.sleep_timer_short),
+                                tint = if (sleepTimerState.isActive) {
+                                    nowPlayingActiveIconColor
+                                } else {
+                                    LocalContentColor.current
+                                },
+                                modifier = Modifier.size(nowPlayingToolbarIconSize)
+                            )
+                        }
+                        // 添加到歌单
+                        HapticIconButton(
+                            onClick = { showAddSheet = true },
+                            modifier = Modifier
+                                .sharedBounds(
+                                    rememberSharedContentState(key = "btn_add"),
+                                    animatedVisibilityScope = this@AnimatedContent,
+                                    enter = EnterTransition.None,
+                                    exit = ExitTransition.None,
+                                ).zIndex(1f)
+                        ) {
+                            Icon(
+                                Icons.AutoMirrored.Outlined.PlaylistAdd,
+                                contentDescription = stringResource(R.string.playlist_add_to),
+                                modifier = Modifier.size(nowPlayingToolbarIconSize)
+                            )
                         }
                     }
                 }
@@ -4280,6 +4145,7 @@ fun MoreOptionsSheet(
     currentPlaybackAudioInfo: PlaybackAudioInfo? = null,
     onShowQualitySwitch: () -> Unit = {},
     onAddToNeteasePlaylist: () -> Unit = {},
+    onShowVolume: (() -> Unit)? = null,
     offlineMode: Boolean = false
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -4415,6 +4281,9 @@ fun MoreOptionsSheet(
                         },
                         onShowQualitySwitch = {
                             dismissSheet { onShowQualitySwitch() }
+                        },
+                        onShowVolume = onShowVolume?.let { cb ->
+                            { dismissSheet { cb() } }
                         },
                         onAddToNeteasePlaylist = {
                             dismissSheet { onAddToNeteasePlaylist() }

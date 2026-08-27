@@ -25,6 +25,7 @@ import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material.icons.outlined.SkipNext
 import androidx.compose.material.icons.outlined.Timer
 import androidx.compose.material.icons.outlined.Tune
+import androidx.compose.material.icons.outlined.VolumeUp
 import moe.ouom.neriplayer.ui.component.overlay.DensityScaledAlertDialog as AlertDialog
 import moe.ouom.neriplayer.data.settings.NowPlayingMenuVisibility
 import androidx.compose.material3.Card
@@ -113,7 +114,8 @@ internal fun MoreOptionsMainContent(
     onDeleteFromNeteasePlaylist: (suspend () -> Unit)? = null,
     menuVisibility: NowPlayingMenuVisibility = NowPlayingMenuVisibility(),
     onEnterAlbum: (AlbumSummary) -> Unit,
-    onDismissSheet: (() -> Unit) -> Unit
+    onDismissSheet: (() -> Unit) -> Unit,
+    onShowVolume: (() -> Unit)? = null,
 ) {
     val scrollState = rememberScrollState()
     val confirmScope = rememberCoroutineScope()
@@ -139,6 +141,7 @@ internal fun MoreOptionsMainContent(
                 onOpenEditInfo = onOpenEditInfo,
                 onOpenPlaybackSound = onOpenPlaybackSound,
                 onShowQualitySwitch = onShowQualitySwitch,
+                onShowVolume = onShowVolume,
                 onAddToNeteasePlaylist = onAddToNeteasePlaylist
             )
         }
@@ -273,6 +276,7 @@ private fun MetadataAndPlaybackActions(
     onOpenEditInfo: () -> Unit,
     onOpenPlaybackSound: () -> Unit,
     onShowQualitySwitch: () -> Unit,
+    onShowVolume: (() -> Unit)? = null,
     onAddToNeteasePlaylist: () -> Unit = {}
 ) {
     if (showSongInfo) {
@@ -318,6 +322,13 @@ private fun MetadataAndPlaybackActions(
             leadingContent = { Icon(Icons.Outlined.Tune, null) },
             supportingContent = { Text(stringResource(R.string.nowplaying_audio_effects_desc)) },
             modifier = Modifier.clickable(onClick = onOpenPlaybackSound)
+        )
+    }
+    if (onShowVolume != null) {
+        ListItem(
+            headlineContent = { Text(stringResource(R.string.player_restore_volume)) },
+            leadingContent = { Icon(Icons.Outlined.VolumeUp, null) },
+            modifier = Modifier.clickable(onClick = onShowVolume)
         )
     }
 }
