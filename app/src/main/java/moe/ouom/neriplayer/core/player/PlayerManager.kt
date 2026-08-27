@@ -142,6 +142,7 @@ import moe.ouom.neriplayer.core.player.playback.applyListenTogetherPlaybackModeI
 import moe.ouom.neriplayer.core.player.playback.cancelPendingPauseRequestImpl
 import moe.ouom.neriplayer.core.player.playback.cancelVolumeFadeImpl
 import moe.ouom.neriplayer.core.player.playback.cycleRepeatModeImpl
+import moe.ouom.neriplayer.core.player.playback.setRepeatModeImpl
 import moe.ouom.neriplayer.core.player.playback.handleTrackEndedIfNeededImpl
 import moe.ouom.neriplayer.core.player.playback.nextImpl
 import moe.ouom.neriplayer.core.player.playback.pauseImpl
@@ -2568,6 +2569,11 @@ object PlayerManager {
 
     fun cycleRepeatMode(commandSource: PlaybackCommandSource = PlaybackCommandSource.LOCAL) =
         this.cycleRepeatModeImpl(commandSource)
+
+    fun setRepeatMode(
+        mode: Int,
+        commandSource: PlaybackCommandSource = PlaybackCommandSource.LOCAL
+    ) = this.setRepeatModeImpl(mode, commandSource)
 
     fun release() = releaseImpl()
 

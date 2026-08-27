@@ -106,6 +106,8 @@ import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Headset
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.outlined.VolumeUp
+import androidx.compose.material.icons.automirrored.outlined.Sort
 import androidx.compose.material.icons.filled.RepeatOne
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SpeakerGroup
@@ -574,6 +576,13 @@ internal data class NowPlayingMainControlsLayout(
     val primaryButtonSize: Dp,
     val spacing: Dp
 )
+
+// v37:播放页单一播放模式按钮的三态
+internal enum class NowPlayingPlaybackMode {
+    SEQUENTIAL,  // 顺序播放
+    SHUFFLE,     // 随机播放
+    REPEAT_ONE   // 单曲循环
+}
 
 internal fun resolveNowPlayingMainControlsLayout(
     availableWidth: Dp,
@@ -2935,18 +2944,48 @@ fun NowPlayingScreen(
                         horizontalArrangement = Arrangement.SpaceEvenly,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // 随机(核心控制内的次级操作)
+                        // 播放模式(v37:单一按钮三态循环 顺序→随机→单曲循环→顺序)
+                        // 屏幕上永远只有一个模式图标,不再同时显示随机+循环
+                        val playbackMode = when {
+                            shuffleEnabled -> NowPlayingPlaybackMode.SHUFFLE
+                            repeatMode == Player.REPEAT_MODE_ONE -> NowPlayingPlaybackMode.REPEAT_ONE
+                            else -> NowPlayingPlaybackMode.SEQUENTIAL
+                        }
+                        val nextPlaybackMode = when (playbackMode) {
+                            NowPlayingPlaybackMode.SHUFFLE -> NowPlayingPlaybackMode.REPEAT_ONE
+                            NowPlayingPlaybackMode.REPEAT_ONE -> NowPlayingPlaybackMode.SEQUENTIAL
+                            NowPlayingPlaybackMode.SEQUENTIAL -> NowPlayingPlaybackMode.SHUFFLE
+                        }
                         HapticIconButton(
-                            onClick = { PlayerManager.setShuffle(!shuffleEnabled) },
+                            onClick = {
+                                when (nextPlaybackMode) {
+                                    NowPlayingPlaybackMode.SHUFFLE -> {
+                                        PlayerManager.setRepeatMode(Player.REPEAT_MODE_OFF)
+                                        PlayerManager.setShuffle(true)
+                                    }
+                                    NowPlayingPlaybackMode.REPEAT_ONE -> {
+                                        PlayerManager.setShuffle(false)
+                                        PlayerManager.setRepeatMode(Player.REPEAT_MODE_ONE)
+                                    }
+                                    NowPlayingPlaybackMode.SEQUENTIAL -> {
+                                        PlayerManager.setShuffle(false)
+                                        PlayerManager.setRepeatMode(Player.REPEAT_MODE_OFF)
+                                    }
+                                }
+                            },
                             modifier = Modifier.size(44.dp)
                         ) {
                             Icon(
-                                Icons.Outlined.Shuffle,
+                                imageVector = when (playbackMode) {
+                                    NowPlayingPlaybackMode.SHUFFLE -> Icons.Outlined.Shuffle
+                                    NowPlayingPlaybackMode.REPEAT_ONE -> Icons.Filled.RepeatOne
+                                    NowPlayingPlaybackMode.SEQUENTIAL -> Icons.AutoMirrored.Outlined.Sort
+                                },
                                 contentDescription = stringResource(R.string.player_shuffle),
-                                tint = if (shuffleEnabled) {
-                                    nowPlayingActiveIconColor
-                                } else {
+                                tint = if (playbackMode == NowPlayingPlaybackMode.SEQUENTIAL) {
                                     LocalContentColor.current.copy(alpha = 0.55f)
+                                } else {
+                                    nowPlayingActiveIconColor
                                 },
                                 modifier = Modifier.size(nowPlayingToolbarIconSize)
                             )
@@ -3054,8 +3093,8 @@ fun NowPlayingScreen(
                     )
                 }
 
-                // 辅助工具行(v36):循环/歌词/更多,低存在感次级操作区;
-                // 随机/队列已升入核心控制轴,定时保持更多菜单
+                // 小工具行(v37):歌词/音量/更多,低存在感次级工具区;
+                // 播放模式三态并入核心轴单按钮,队列升入核心轴,定时/添加等低频在更多菜单
                 val nowPlayingAuxiliaryRow: @Composable () -> Unit = {
                     Row(
                         modifier = Modifier
@@ -3064,26 +3103,6 @@ fun NowPlayingScreen(
                         horizontalArrangement = Arrangement.SpaceEvenly,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // 循环模式(播放模式,与随机分开:随机在核心轴、循环在此)
-                        HapticIconButton(
-                            onClick = { PlayerManager.cycleRepeatMode() },
-                            modifier = Modifier.size(44.dp)
-                        ) {
-                            Icon(
-                                imageVector = if (repeatMode == Player.REPEAT_MODE_ONE) {
-                                    Icons.Filled.RepeatOne
-                                } else {
-                                    Icons.Outlined.Repeat
-                                },
-                                contentDescription = stringResource(R.string.player_repeat),
-                                tint = if (repeatMode != Player.REPEAT_MODE_OFF) {
-                                    nowPlayingActiveIconColor
-                                } else {
-                                    LocalContentColor.current.copy(alpha = 0.55f)
-                                },
-                                modifier = Modifier.size(nowPlayingToolbarIconSize)
-                            )
-                        }
                         // 歌词
                         HapticIconButton(
                             onClick = { onShowLyricsScreenChange(!showLyricsScreen) },
@@ -3109,9 +3128,29 @@ fun NowPlayingScreen(
                                 modifier = Modifier.size(nowPlayingToolbarIconSize)
                             )
                         }
-                        // 更多(v36:顶栏入口下沉至此)
-                        // v36:「更多」入口下沉到底部辅助工具行,顶栏保持 ⌄ + ♡
+                        // 音量(复用现有 Volume Sheet,含输出设备功能)
+                        HapticIconButton(
+                            onClick = { showVolumeSheet = true },
+                            modifier = Modifier.size(44.dp)
+                        ) {
+                            Icon(
+                                Icons.Outlined.VolumeUp,
+                                contentDescription = stringResource(R.string.player_restore_volume),
+                                modifier = Modifier.size(nowPlayingToolbarIconSize)
+                            )
                         }
+                        // 更多(低频入口:定时/添加/音质/音效/歌曲信息/编辑等)
+                        HapticIconButton(
+                            onClick = { showMoreOptions = true },
+                            modifier = Modifier.size(44.dp)
+                        ) {
+                            Icon(
+                                Icons.Filled.MoreVert,
+                                contentDescription = stringResource(R.string.nowplaying_more_options),
+                                modifier = Modifier.size(nowPlayingToolbarIconSize)
+                            )
+                        }
+                    }
                 }
 
                 // 主列内容
@@ -3237,8 +3276,10 @@ fun NowPlayingScreen(
                                 maxHeight * 0.42f
                             )
                             isLandscape -> minOf(windowWidthDp * 0.45f, maxHeight * 0.5f, maxWidth)
-                            // 封面是主视觉:v36 加大至 0.885 屏宽,靠近参考图的封面权重
-                            else -> minOf(maxWidth * 0.885f, maxHeight * 0.58f)
+                            // 封面是主视觉:v37 封面吃满列宽(左右各 20dp 屏边距,
+                            // 实际约 0.89 屏宽,落在 0.88~0.90 目标区间);
+                            // 歌曲信息块从同一列左缘开始,与封面左边缘严格对齐
+                            else -> minOf(maxWidth, maxHeight * 0.62f)
                         }
                         val coverRequestSizePx = with(LocalDensity.current) {
                             coverSize.roundToPx().coerceAtLeast(256)
@@ -3266,7 +3307,7 @@ fun NowPlayingScreen(
                                         scaleX = coverPlayingScale
                                         scaleY = coverPlayingScale
                                     }
-                                    .clip(RoundedCornerShape(20.dp))
+                                    .clip(RoundedCornerShape(22.dp))
                                     .background(
                                         color = if (currentCoverUrl != null) {
                                             Color.Transparent
@@ -3452,14 +3493,14 @@ fun NowPlayingScreen(
                     if (!nowPlayingProgressAtBottom) {
                         Spacer(Modifier.height(10.dp))
                         nowPlayingProgressSection()
-                        Spacer(Modifier.height(if (useWideLandscapeLayout) 12.dp else 8.dp))
+                        // v37:进度条→核心控制的呼吸空间加大(8→16dp)
+                        Spacer(Modifier.height(16.dp))
                     }
 
                     if (!nowPlayingControlsAtBottom) {
                         mainPlaybackControls()
-                        // v35:辅助行间距收敛(70→44dp),成为核心控制下方自然延伸的次级操作区;
-                        // 释放的空间整体留在辅助行下方
-                        Spacer(Modifier.height(44.dp))
+                        // v37:核心控制→小工具行适度距离(44→56dp)
+                        Spacer(Modifier.height(56.dp))
                         nowPlayingAuxiliaryRow()
                     }
 

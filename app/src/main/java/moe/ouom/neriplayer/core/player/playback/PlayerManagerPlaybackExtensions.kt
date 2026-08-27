@@ -1963,6 +1963,34 @@ internal fun PlayerManager.cycleRepeatModeImpl(
     )
 }
 
+internal fun PlayerManager.setRepeatModeImpl(
+    mode: Int,
+    commandSource: PlaybackCommandSource = PlaybackCommandSource.LOCAL
+) {
+    ensureInitialized()
+    if (!initialized) return
+    if (shouldBlockLocalRoomControl(commandSource)) return
+    val validMode = when (mode) {
+        Player.REPEAT_MODE_ALL -> Player.REPEAT_MODE_ALL
+        Player.REPEAT_MODE_ONE -> Player.REPEAT_MODE_ONE
+        else -> Player.REPEAT_MODE_OFF
+    }
+    repeatModeSetting = validMode
+    syncExoRepeatMode()
+    _repeatModeFlow.value = validMode
+    NPLogger.d(
+        "NERI-PlayerManager",
+        "setRepeatMode: mode=$validMode, exoRepeatMode=${player.repeatMode}"
+    )
+    scheduleStatePersist()
+    emitPlaybackCommand(
+        type = "PLAYBACK_MODE",
+        source = commandSource,
+        repeatMode = validMode,
+        shuffleEnabled = player.shuffleModeEnabled
+    )
+}
+
 internal fun PlayerManager.setShuffleImpl(
     enabled: Boolean,
     commandSource: PlaybackCommandSource = PlaybackCommandSource.LOCAL
