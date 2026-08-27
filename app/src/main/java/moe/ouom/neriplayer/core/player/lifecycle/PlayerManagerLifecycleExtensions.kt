@@ -661,6 +661,12 @@ internal fun PlayerManager.initializeImpl(
                 _playerPlaybackStateFlow.value = state
                 if (state == Player.STATE_BUFFERING && player.playWhenReady) {
                     schedulePlaybackStartupWatchdog(reason = "state_buffering")
+                    // 后台缓冲续期 wake lock:防止 CPU suspend 冻结网络解析导致「后台停住、回前台恢复」
+                    PlaybackTransitionWakeLock.acquire(
+                        context = application,
+                        requestToken = playbackRequestToken,
+                        reason = "state_buffering"
+                    )
                 }
                 if (state == Player.STATE_READY) {
                     val accepted = shouldAcceptPlayerCallback(

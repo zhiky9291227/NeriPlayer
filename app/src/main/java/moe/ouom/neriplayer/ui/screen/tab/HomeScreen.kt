@@ -83,6 +83,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LargeTopAppBar
+import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -145,7 +146,6 @@ import moe.ouom.neriplayer.data.local.playlist.system.LocalFilesPlaylist
 import moe.ouom.neriplayer.data.local.playlist.system.SystemLocalPlaylists
 import moe.ouom.neriplayer.data.playlist.usage.UsageEntry
 import moe.ouom.neriplayer.data.playlist.usage.buildLocalPlaylistUsageLookup
-import moe.ouom.neriplayer.data.history.toSongItem
 import moe.ouom.neriplayer.data.platform.youtube.buildYouTubeMusicMediaUri
 import moe.ouom.neriplayer.data.local.media.displayAlbum
 import moe.ouom.neriplayer.data.settings.generated.AutoSettingsRepository
@@ -394,12 +394,6 @@ fun HomeScreen(
         usageLoaded = usageLoaded,
         hasUsage = usageEntries.isNotEmpty()
     )
-    // 最近播放（方案 B）：单曲历史驱动，优先展示最近听过的歌（横向歌曲卡片）
-    val playHistory by AppContainer.playHistoryRepo.historyFlow
-        .collectAsStateWithLifecycle(initialValue = emptyList())
-    val recentSongs = remember(playHistory) {
-        playHistory.take(10).map { it.toSongItem() }
-    }
     val isInternational = ui.internationalizationEnabled
     // 首页板块自定义顺序：DataStore 里存的是完整顺序表，缺失/非法项自动回退默认
     val autoSettingsRepo = remember { AutoSettingsRepository(context.applicationContext) }
@@ -479,8 +473,15 @@ fun HomeScreen(
                 .statusBarsPadding()
                 .nestedScroll(scrollBehavior.nestedScrollConnection)
         ) {
-            LargeTopAppBar(
-                title = { Text(appBarTitle) },
+            TopAppBar(
+                title = {
+                    Text(
+                        text = appBarTitle,
+                        style = MaterialTheme.typography.headlineMedium.copy(
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                    )
+                },
                 actions = {
                     HapticIconButton(
                         enabled = !offlineMode,
@@ -517,7 +518,7 @@ fun HomeScreen(
 
             Box(
                 modifier = Modifier
-                    .padding(horizontal = pageHorizontalPadding, vertical = 8.dp)
+                    .padding(horizontal = pageHorizontalPadding, vertical = 4.dp)
                     .widthIn(max = 1240.dp)
                     .fillMaxWidth()
                     .weight(1f)
@@ -580,16 +581,7 @@ fun HomeScreen(
                             key = registerGridItemKey(HomeScrollKeyContinueContent),
                             span = { GridItemSpan(maxLineSpan) }
                         ) {
-                            if (recentSongs.isNotEmpty()) {
-                                RecentPlaybackStrip(
-                                    songs = recentSongs,
-                                    onSongClick = onSongClick,
-                                    favoriteSongs = favoriteSongs,
-                                    onFavoriteToggle = ::toggleHomeSongFavorite,
-                                    onShowSnackbar = showHomeSnackbar,
-                                    offlineMode = offlineMode
-                                )
-                            } else if (usageLoaded) {
+                            if (usageLoaded) {
                                 ContinueSection(
                                     items = usageEntries.take(12),
                                     localPlaylistLookup = localPlaylistUsageLookup,
@@ -1173,7 +1165,7 @@ private fun SectionHeader(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = 12.dp, end = 12.dp, top = HomeSectionSpacingDp.dp, bottom = 10.dp)
+            .padding(start = 4.dp, end = 12.dp, top = HomeSectionSpacingDp.dp, bottom = 10.dp)
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -2202,39 +2194,6 @@ private fun LazyGridScope.addYouTubeMusicSongShelfSection(
     }
 }
 
-/**
- * 最近播放（方案 B）：单曲历史驱动的横向歌曲卡片。
- * 每张卡片 = 方形封面 + 歌名 + 歌手，点击整卡播放该曲，长按出歌曲菜单。
- */
-@Composable
-private fun RecentPlaybackStrip(
-    songs: List<SongItem>,
-    onSongClick: (List<SongItem>, Int) -> Unit,
-    favoriteSongs: List<SongItem>,
-    onFavoriteToggle: (SongItem, Boolean) -> Unit,
-    onShowSnackbar: (String) -> Unit,
-    offlineMode: Boolean,
-    modifier: Modifier = Modifier
-) {
-    val cardWidth = if (currentWindowWidthDp() >= 600.dp) 200.dp else 168.dp
-    LazyRow(
-        modifier = modifier.fillMaxWidth(),
-        contentPadding = PaddingValues(horizontal = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        itemsIndexed(songs) { index, song ->
-            RecentPlaybackCard(
-                song = song,
-                isFavorite = favoriteSongs.any { it.sameIdentityAs(song) },
-                onClick = { onSongClick(songs, index) },
-                onFavoriteToggle = onFavoriteToggle,
-                onShowSnackbar = onShowSnackbar,
-                offlineMode = offlineMode,
-                modifier = Modifier.width(cardWidth)
-            )
-        }
-    }
-}
 
 @Composable
 private fun RecentPlaybackCard(

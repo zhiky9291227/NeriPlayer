@@ -40,13 +40,31 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
 import androidx.core.graphics.toColorInt
 import com.materialkolor.PaletteStyle
 import com.materialkolor.dynamiccolor.ColorSpec
 import com.materialkolor.rememberDynamicColorScheme
 import moe.ouom.neriplayer.data.settings.ThemeDefaults
 
-private val NeriTypography = Typography()
+/**
+ * 统一字体层级:标题统一 ExtraBold、正文/辅助文字层级分明。
+ * 只调 fontWeight 与 letterSpacing,不动字号,避免破坏既有排版。
+ */
+private val NeriTypography = Typography().run {
+    copy(
+        // 页面大标题(问候语)
+        headlineMedium = headlineMedium.copy(fontWeight = FontWeight.ExtraBold),
+        // 板块标题
+        headlineSmall = headlineSmall.copy(fontWeight = FontWeight.ExtraBold),
+        // 歌名/列表主标题
+        titleMedium = titleMedium.copy(fontWeight = FontWeight.SemiBold),
+        titleSmall = titleSmall.copy(fontWeight = FontWeight.SemiBold),
+        // 辅助信息(歌手/数量)略收字距,更精致
+        bodySmall = bodySmall.copy(letterSpacing = 0.01.sp)
+    )
+}
 private const val ThemeColorTransitionDurationMs = 420
 
 internal val LocalNeriTargetColorScheme = staticCompositionLocalOf<ColorScheme> {
