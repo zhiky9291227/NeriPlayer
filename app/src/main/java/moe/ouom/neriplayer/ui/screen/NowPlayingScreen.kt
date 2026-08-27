@@ -2947,7 +2947,6 @@ fun NowPlayingScreen(
                                 (controlsLayout.primaryButtonSize.value /
                                     primaryControlButtonSize.value)
                             ).coerceAtLeast(18.dp)
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(controlsLayout.spacing),
                             verticalAlignment = Alignment.CenterVertically
@@ -3013,48 +3012,8 @@ fun NowPlayingScreen(
                                 )
                             }
                         }
-                        // 第二层:随机/循环降为小控件(播放核心区第一层只留 上一首/播放/下一首)
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(28.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(top = 2.dp)
-                        ) {
-                            HapticIconButton(
-                                onClick = { PlayerManager.setShuffle(!shuffleEnabled) },
-                                modifier = Modifier.size(34.dp)
-                            ) {
-                                Icon(
-                                    Icons.Outlined.Shuffle,
-                                    contentDescription = stringResource(R.string.player_shuffle),
-                                    modifier = Modifier.size(18.dp),
-                                    tint = if (shuffleEnabled) {
-                                        nowPlayingActiveIconColor
-                                    } else {
-                                        LocalContentColor.current.copy(alpha = 0.55f)
-                                    }
-                                )
-                            }
-                            HapticIconButton(
-                                onClick = { PlayerManager.cycleRepeatMode() },
-                                modifier = Modifier.size(34.dp)
-                            ) {
-                                Icon(
-                                    imageVector = if (repeatMode == Player.REPEAT_MODE_ONE) {
-                                        Icons.Filled.RepeatOne
-                                    } else {
-                                        Icons.Outlined.Repeat
-                                    },
-                                    contentDescription = stringResource(R.string.player_repeat),
-                                    modifier = Modifier.size(18.dp),
-                                    tint = if (repeatMode != Player.REPEAT_MODE_OFF) {
-                                        nowPlayingActiveIconColor
-                                    } else {
-                                        LocalContentColor.current.copy(alpha = 0.55f)
-                                    }
-                                )
-                            }
-                        }
-                        }
+                        // v33:核心控制只有一根水平轴(上一首/播放/下一首),
+                        // 随机/循环已下沉到辅助操作行,不再作为中央按钮的附属层
                     }
                 }
 
@@ -3198,6 +3157,8 @@ fun NowPlayingScreen(
                                     onShowQualitySwitch = { showQualitySwitchDialog = true },
                                     onAddToNeteasePlaylist = { showNeteasePlaylistPicker = true },
                                     onShowVolume = { showVolumeSheet = true },
+                                    onShowSleepTimer = { showSleepTimerDialog = true },
+                                    onShowAddToPlaylist = { showAddSheet = true },
                                     offlineMode = offlineMode
                                 )
                             }
@@ -3456,8 +3417,10 @@ fun NowPlayingScreen(
                         Spacer(Modifier.height(4.dp))
                     }
 
-                    // 辅助操作行(v32):歌词/队列/定时/添加 四个轻量图标,
-                    // 无背景无 dock,SpaceEvenly 水平排列;低频功能(音质/歌曲信息/分享)在右上角更多菜单
+                    // 辅助操作行(v33):随机/循环/歌词/队列 四个统一图标,
+                    // 无背景无 dock 无文字,SpaceEvenly 水平排列;
+                    // 与核心控制之间有明确层级间距;定时/添加退到右上角更多菜单
+                    Spacer(Modifier.height(28.dp))
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -3466,6 +3429,42 @@ fun NowPlayingScreen(
                         horizontalArrangement = Arrangement.SpaceEvenly,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
+                        // 随机播放
+                        HapticIconButton(
+                            onClick = { PlayerManager.setShuffle(!shuffleEnabled) },
+                            modifier = Modifier.size(44.dp)
+                        ) {
+                            Icon(
+                                Icons.Outlined.Shuffle,
+                                contentDescription = stringResource(R.string.player_shuffle),
+                                tint = if (shuffleEnabled) {
+                                    nowPlayingActiveIconColor
+                                } else {
+                                    LocalContentColor.current.copy(alpha = 0.55f)
+                                },
+                                modifier = Modifier.size(nowPlayingToolbarIconSize)
+                            )
+                        }
+                        // 循环模式
+                        HapticIconButton(
+                            onClick = { PlayerManager.cycleRepeatMode() },
+                            modifier = Modifier.size(44.dp)
+                        ) {
+                            Icon(
+                                imageVector = if (repeatMode == Player.REPEAT_MODE_ONE) {
+                                    Icons.Filled.RepeatOne
+                                } else {
+                                    Icons.Outlined.Repeat
+                                },
+                                contentDescription = stringResource(R.string.player_repeat),
+                                tint = if (repeatMode != Player.REPEAT_MODE_OFF) {
+                                    nowPlayingActiveIconColor
+                                } else {
+                                    LocalContentColor.current.copy(alpha = 0.55f)
+                                },
+                                modifier = Modifier.size(nowPlayingToolbarIconSize)
+                            )
+                        }
                         // 歌词
                         HapticIconButton(
                             onClick = { onShowLyricsScreenChange(!showLyricsScreen) },
@@ -3505,45 +3504,6 @@ fun NowPlayingScreen(
                             Icon(
                                 Icons.AutoMirrored.Outlined.QueueMusic,
                                 contentDescription = stringResource(R.string.playlist_queue),
-                                modifier = Modifier.size(nowPlayingToolbarIconSize)
-                            )
-                        }
-                        // 睡眠定时
-                        HapticIconButton(
-                            onClick = { showSleepTimerDialog = true },
-                            modifier = Modifier
-                                .sharedBounds(
-                                    rememberSharedContentState(key = "btn_timer"),
-                                    animatedVisibilityScope = this@AnimatedContent,
-                                    enter = EnterTransition.None,
-                                    exit = ExitTransition.None,
-                                ).zIndex(1f)
-                        ) {
-                            Icon(
-                                Icons.Outlined.Timer,
-                                contentDescription = stringResource(R.string.sleep_timer_short),
-                                tint = if (sleepTimerState.isActive) {
-                                    nowPlayingActiveIconColor
-                                } else {
-                                    LocalContentColor.current
-                                },
-                                modifier = Modifier.size(nowPlayingToolbarIconSize)
-                            )
-                        }
-                        // 添加到歌单
-                        HapticIconButton(
-                            onClick = { showAddSheet = true },
-                            modifier = Modifier
-                                .sharedBounds(
-                                    rememberSharedContentState(key = "btn_add"),
-                                    animatedVisibilityScope = this@AnimatedContent,
-                                    enter = EnterTransition.None,
-                                    exit = ExitTransition.None,
-                                ).zIndex(1f)
-                        ) {
-                            Icon(
-                                Icons.AutoMirrored.Outlined.PlaylistAdd,
-                                contentDescription = stringResource(R.string.playlist_add_to),
                                 modifier = Modifier.size(nowPlayingToolbarIconSize)
                             )
                         }
@@ -4146,6 +4106,8 @@ fun MoreOptionsSheet(
     onShowQualitySwitch: () -> Unit = {},
     onAddToNeteasePlaylist: () -> Unit = {},
     onShowVolume: (() -> Unit)? = null,
+    onShowSleepTimer: (() -> Unit)? = null,
+    onShowAddToPlaylist: (() -> Unit)? = null,
     offlineMode: Boolean = false
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -4283,6 +4245,12 @@ fun MoreOptionsSheet(
                             dismissSheet { onShowQualitySwitch() }
                         },
                         onShowVolume = onShowVolume?.let { cb ->
+                            { dismissSheet { cb() } }
+                        },
+                        onShowSleepTimer = onShowSleepTimer?.let { cb ->
+                            { dismissSheet { cb() } }
+                        },
+                        onShowAddToPlaylist = onShowAddToPlaylist?.let { cb ->
                             { dismissSheet { cb() } }
                         },
                         onAddToNeteasePlaylist = {

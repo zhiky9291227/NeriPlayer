@@ -116,6 +116,8 @@ internal fun MoreOptionsMainContent(
     onEnterAlbum: (AlbumSummary) -> Unit,
     onDismissSheet: (() -> Unit) -> Unit,
     onShowVolume: (() -> Unit)? = null,
+    onShowSleepTimer: (() -> Unit)? = null,
+    onShowAddToPlaylist: (() -> Unit)? = null,
 ) {
     val scrollState = rememberScrollState()
     val confirmScope = rememberCoroutineScope()
@@ -143,6 +145,21 @@ internal fun MoreOptionsMainContent(
                 onShowQualitySwitch = onShowQualitySwitch,
                 onShowVolume = onShowVolume,
                 onAddToNeteasePlaylist = onAddToNeteasePlaylist
+            )
+        }
+        // v33:睡眠定时/添加到歌单 从辅助行下沉到更多菜单(低频入口)
+        if (onShowSleepTimer != null) {
+            ListItem(
+                headlineContent = { Text(stringResource(R.string.sleep_timer_short)) },
+                leadingContent = { Icon(Icons.Outlined.Timer, null) },
+                modifier = Modifier.clickable(onClick = onShowSleepTimer)
+            )
+        }
+        if (onShowAddToPlaylist != null) {
+            ListItem(
+                headlineContent = { Text(stringResource(R.string.playlist_add_to)) },
+                leadingContent = { Icon(Icons.AutoMirrored.Outlined.PlaylistAdd, null) },
+                modifier = Modifier.clickable(onClick = onShowAddToPlaylist)
             )
         }
         if (menuVisibility.download) {
