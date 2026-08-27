@@ -140,6 +140,7 @@ fun HomeHostScreen(
     offlineMode: Boolean = false,
     runtimeState: HomeHostRuntimeState = rememberHomeHostRuntimeState(),
     onSongClick: (List<SongItem>, Int) -> Unit = { _, _ -> },
+    onOpenSettings: () -> Unit = {},
     onSongClickWithSourceRoute: (List<SongItem>, Int, String?) -> Unit = { songs, index, _ ->
         onSongClick(songs, index)
     },
@@ -386,6 +387,7 @@ fun HomeHostScreen(
                                 usageEntries = homeUsageEntries,
                                 usageLoaded = homeUsageLoaded,
                                 offlineMode = offlineMode,
+                                onOpenSettings = onOpenSettings,
                                 gridState = gridState,
                                 radarPlaylistListState = runtimeState.radarPlaylistListState,
                                 topAppBarState = runtimeState.topAppBarState,

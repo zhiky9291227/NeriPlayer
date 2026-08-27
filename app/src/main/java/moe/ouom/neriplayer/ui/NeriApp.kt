@@ -2655,7 +2655,6 @@ private fun NeriAppContent(
                     if (showHomeTab) add(Destinations.Home to Icons.Outlined.Home)
                     add(Destinations.Explore to Icons.Outlined.Search)
                     add(Destinations.Library to Icons.Outlined.LibraryMusic)
-                    add(Destinations.Settings to Icons.Outlined.Settings)
                     if (devModeEnabled) add(Destinations.Debug to Icons.Outlined.BugReport)
                 }
             }
@@ -2773,6 +2772,11 @@ private fun NeriAppContent(
                         offlineMode = offlineMode,
                         runtimeState = homeHostRuntimeState,
                         onSongClick = ::playSongsAndOpenNowPlaying,
+                        onOpenSettings = {
+                            navController.navigate(Destinations.Settings.route) {
+                                launchSingleTop = true
+                            }
+                        },
                         onSongClickWithSourceRoute = ::playSongsAndOpenNowPlaying,
                         onPlayBiliAudioWithSourceRoute = ::playBiliAudioAndOpenNowPlayingWithSource,
                         onPlayBiliPartsWithSourceRoute = ::playBiliPartsAndOpenNowPlayingWithSource,

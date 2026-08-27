@@ -34,6 +34,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -44,6 +45,7 @@ import androidx.compose.material.icons.outlined.MusicNote
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -59,6 +61,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
@@ -72,10 +75,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import moe.ouom.neriplayer.R
+import moe.ouom.neriplayer.core.player.PlayerManager
 import moe.ouom.neriplayer.ui.effect.glass.AdvancedGlassRole
 import moe.ouom.neriplayer.ui.effect.glass.AdvancedGlassSurface
 import moe.ouom.neriplayer.util.media.fastScrollableImageRequest
@@ -85,8 +90,8 @@ import kotlin.math.exp
 import kotlin.math.sign
 
 object NeriMiniPlayerDefaults {
-    val Height = 64.dp
-    internal val ContentVerticalPadding = 8.dp
+    val Height = 60.dp
+    internal val ContentVerticalPadding = 6.dp
 }
 
 private const val MINI_PLAYER_COVER_CLEAR_DELAY_MS = 900L
@@ -284,8 +289,15 @@ fun NeriMiniPlayer(
     isPlaybackWaiting: Boolean = false,
     isAudioRouteMuted: Boolean = false
 ) {
-    val shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)
+    val shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)
     val context = LocalContext.current
+    val playbackPosition by PlayerManager.playbackPositionFlow.collectAsStateWithLifecycle()
+    val playbackDuration by PlayerManager.playbackDurationFlow.collectAsStateWithLifecycle()
+    val progressFraction = if (playbackDuration > 0L) {
+        (playbackPosition.toFloat() / playbackDuration.toFloat()).coerceIn(0f, 1f)
+    } else {
+        0f
+    }
     val requestedCoverUrl = coverUrl?.trim()?.takeIf { it.isNotEmpty() }
     var displayedCoverUrl by remember { mutableStateOf(requestedCoverUrl) }
     val latestRequestedCoverUrl by rememberUpdatedState(requestedCoverUrl)
@@ -401,21 +413,22 @@ fun NeriMiniPlayer(
             shape = shape,
             modifier = Modifier.matchParentSize()
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                modifier = Modifier
-                    .graphicsLayer {
-                        translationX = swipeOffset.value
-                        val offsetRatio = (abs(swipeOffset.value) / reboundPeakPx).coerceIn(0f, 1f)
-                        scaleX = 1f - offsetRatio * 0.025f
-                        scaleY = 1f - offsetRatio * 0.025f
-                    }
-                    .padding(
-                        horizontal = 12.dp,
-                        vertical = NeriMiniPlayerDefaults.ContentVerticalPadding
-                    )
-            ) {
+            Box(Modifier.fillMaxSize()) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier
+                        .graphicsLayer {
+                            translationX = swipeOffset.value
+                            val offsetRatio = (abs(swipeOffset.value) / reboundPeakPx).coerceIn(0f, 1f)
+                            scaleX = 1f - offsetRatio * 0.025f
+                            scaleY = 1f - offsetRatio * 0.025f
+                        }
+                        .padding(
+                            horizontal = 12.dp,
+                            vertical = NeriMiniPlayerDefaults.ContentVerticalPadding
+                        )
+                ) {
                 Box(
                     modifier = Modifier
                         .size(40.dp)
@@ -520,6 +533,18 @@ fun NeriMiniPlayer(
                         progressStrokeWidth = 2.dp
                     )
                 }
+                }
+                // 极细播放进度线(贴底,降饱和暖色)
+                LinearProgressIndicator(
+                    progress = { progressFraction },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(2.dp)
+                        .align(Alignment.BottomCenter),
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.65f),
+                    trackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
+                    strokeCap = StrokeCap.Round
+                )
             }
         }
     }

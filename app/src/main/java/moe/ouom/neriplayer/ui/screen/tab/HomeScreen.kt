@@ -29,7 +29,6 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -71,6 +70,7 @@ import androidx.compose.material.icons.outlined.DeleteForever
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Radar
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material.icons.outlined.Explore
 import androidx.compose.material3.Card
@@ -283,7 +283,8 @@ fun HomeScreen(
     topAppBarState: TopAppBarState,
     onScrollAnchorIndexesChanged: (Map<String, Int>) -> Unit = {},
     onOpenRecent: (UsageEntry) -> Unit = {},
-    onSongClick: (List<SongItem>, Int) -> Unit = { _, _ -> }
+    onSongClick: (List<SongItem>, Int) -> Unit = { _, _ -> },
+    onOpenSettings: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val appContext = remember(context) { context.applicationContext }
@@ -488,6 +489,14 @@ fun HomeScreen(
                         Icon(
                             imageVector = Icons.Filled.Refresh,
                             contentDescription = stringResource(R.string.recommend_refresh)
+                        )
+                    }
+                    HapticIconButton(
+                        onClick = onOpenSettings
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Settings,
+                            contentDescription = stringResource(R.string.nav_settings)
                         )
                     }
                 },
@@ -1388,13 +1397,13 @@ private fun SectionHeader(
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(22.dp)
             )
             Text(
                 text = title,
                 style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.ExtraBold),
-                color = MaterialTheme.colorScheme.primary,
+                color = MaterialTheme.colorScheme.onBackground,
                 modifier = Modifier.padding(start = 8.dp)
             )
             if (onClick != null) {
@@ -1402,15 +1411,11 @@ private fun SectionHeader(
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                     contentDescription = stringResource(R.string.cd_open_full_playlist),
-                    tint = MaterialTheme.colorScheme.primary,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(18.dp)
                 )
             }
         }
-        HorizontalDivider(
-            modifier = Modifier.padding(top = 8.dp, start = 12.dp, end = 12.dp),
-            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.12f)
-        )
     }
 }
 
@@ -1485,7 +1490,7 @@ private fun SongRowMini(
         Text(
             text = index.toString(),
             style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.primary,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.width(28.dp),
             maxLines = 1,
             overflow = TextOverflow.Clip
