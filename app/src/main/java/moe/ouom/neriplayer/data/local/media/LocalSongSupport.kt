@@ -123,6 +123,13 @@ object LocalSongSupport {
         return localDuplicateKeys(second, includeMetadataFallback).any(firstKeys::contains)
     }
 
+    /** 是否有可靠的文件级唯一标识(绝对路径或 file:// 引用);content:// 不算(它需要靠元数据与路径条目互认合并) */
+    fun primaryLocalReference(song: SongItem): String? {
+        normalizedLocalReference(song.localFilePath)?.let { return it }
+        val mediaRef = normalizedLocalReference(song.mediaUri)
+        return mediaRef?.takeIf { it.startsWith("/") }
+    }
+
     private fun isLikelyLegacyLocalSong(song: SongItem, context: Context?): Boolean {
         return song.mediaUri.isNullOrBlank() &&
             song.albumId == 0L &&

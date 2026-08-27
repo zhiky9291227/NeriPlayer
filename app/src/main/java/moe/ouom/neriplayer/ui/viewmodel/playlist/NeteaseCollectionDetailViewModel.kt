@@ -370,7 +370,14 @@ class NeteaseCollectionDetailViewModel(application: Application) : AndroidViewMo
     ) {
         var radarCacheContext = neteaseRadarCacheContext(cookieRepo.getCookiesOnce())
         val requestStartedAtMs = System.currentTimeMillis()
-        val cached = readCompatiblePlaylistCache(playlist.id)
+        // 每日推荐是按账号动态生成的视图(固定假 ID),不读缓存:
+        // 缓存里该 ID 的残留可能是旧账号数据,先发布会闪现陌生人歌单(BUG-1)
+        val isDailyRecommendView = playlist.id == NETEASE_DAILY_RECOMMEND_PLAYLIST_VIEW_ID
+        val cached = if (isDailyRecommendView) {
+            null
+        } else {
+            readCompatiblePlaylistCache(playlist.id)
+        }
         if (
             !forceRefresh &&
             cached != null &&
@@ -876,7 +883,9 @@ class NeteaseCollectionDetailViewModel(application: Application) : AndroidViewMo
                 name = playlist.name.ifBlank {
                     getApplication<Application>().getString(R.string.home_netease_daily_songs)
                 },
-                coverUrl = "",
+                // 封面用入口带入的图兜底(首页板块传第一首歌的专辑图);
+                // 硬编码空串会导致从「最近播放」进入时封面不显示(BUG-1)
+                coverUrl = toHttps(playlist.picUrl) ?: "",
                 playCount = 0L,
                 trackCount = tracks.size
             ),
